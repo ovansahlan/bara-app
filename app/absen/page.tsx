@@ -16,7 +16,8 @@ export default function AbsensiSaaS() {
   
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
+  // TWEAK 2: Mengunci daftar nama kru toko sesuai instruksi
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
   const daftarShift = ["Shift 1 (Pagi)", "Shift 2 (Malam/Tutup)", "Full Day (Gabungan)"];
 
   useEffect(() => {
@@ -47,15 +48,31 @@ export default function AbsensiSaaS() {
     }
   };
 
+  // TWEAK 1A: Membalik matriks kanvas agar hasil simpanan .jpg di Vercel Blob ikut ter-mirror otomatis
   const jepretFoto = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (!context) return;
 
-      canvasRef.current.width = videoRef.current.videoWidth;
-      canvasRef.current.height = videoRef.current.videoHeight;
-      context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-      setFotoBase64(canvasRef.current.toDataURL('image/jpeg', 0.8));
+      const MAX_WIDTH = 400;
+      const MAX_HEIGHT = 400;
+
+      canvasRef.current.width = MAX_WIDTH;
+      canvasRef.current.height = MAX_HEIGHT;
+
+      // Logika Kriptografi Kanvas: Geser sumbu X ke kanan, lalu balik arah skalanya (-1)
+      context.translate(MAX_WIDTH, 0);
+      context.scale(-1, 1);
+
+      // Gambar video ke kanvas mini dalam kondisi terbalik (mirrored)
+      context.drawImage(videoRef.current, 0, 0, MAX_WIDTH, MAX_HEIGHT);
+
+      // Kembalikan transformasi kanvas ke normal setelah selesai menggambar
+      context.setTransform(1, 0, 0, 1, 0, 0);
+
+      const kualitasKompresi = 0.6; 
+      setFotoBase64(canvasRef.current.toDataURL('image/jpeg', kualitasKompresi));
+      
       tutupKamera();
     }
   };
@@ -67,7 +84,6 @@ export default function AbsensiSaaS() {
     }
   };
 
-  // FIX HUBUNGAN API: Sekarang menembak langsung ke API Route Next.js Backend test
   const handleAbsen = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.nama || !formData.shift || !fotoBase64) {
@@ -87,7 +103,7 @@ export default function AbsensiSaaS() {
           nama: formData.nama,
           shift: formData.shift,
           status: formData.status,
-          fotoBase64: fotoBase64, // Mengirimkan string foto selfie base64
+          fotoBase64: fotoBase64, 
         }),
       });
 
@@ -175,7 +191,8 @@ export default function AbsensiSaaS() {
             <div className="bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden min-h-[260px]">
               {stream && !fotoBase64 && (
                 <>
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-lg shadow-inner" />
+                  {/* TWEAK 1B: Menambahkan class Tailwind '-scale-x-100' agar live preview video di layar HP terasa seperti cermin */}
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-lg shadow-inner -scale-x-100" />
                   <button type="button" onClick={jepretFoto} className="absolute bottom-4 bg-white text-indigo-600 px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border border-zinc-200">
                     <Camera size={18} /> Ambil Foto
                   </button>
@@ -183,6 +200,7 @@ export default function AbsensiSaaS() {
               )}
               {fotoBase64 && (
                 <>
+                  {/* Gambar hasil jepretan tidak perlu dibalik manual lagi karena piksel datanya sudah dibalik permanen oleh Canvas di atas */}
                   <img src={fotoBase64} alt="Selfie" className="w-full h-full object-cover rounded-lg shadow-inner" />
                   <button type="button" onClick={() => { setFotoBase64(null); bukaKamera(); }} className="absolute bottom-4 bg-zinc-900 text-white px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2">
                     <RefreshCw size={16} /> Kamera Ulang

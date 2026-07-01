@@ -2,197 +2,280 @@
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
-import { 
-  ShoppingBag, User, Tag, Calendar, ChevronLeft, 
-  CheckCircle2, Banknote, Package, Plus, Trash2, ReceiptText, Calculator
-} from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, CheckCircle2, ShoppingCart, Wallet } from 'lucide-react';
 
-// Struktur input item aktif saat ini
-interface ItemForm {
+interface BelanjaItem {
   namaItem: string;
-  kuantiti: string;
-  satuan: string;
-  hargaSatuan: string;
-}
-
-// Struktur data item yang siap mengantre di dalam keranjang
-interface BelanjaRecord {
-  namaItem: string;
-  satuan: string;
   kuantiti: number;
+  satuan: string;
   hargaSatuanAsli: number;
   nominalAsli: number;
-  nominalFormat: string;
+  hargaSatuanDisplay: string;
+  nominalDisplay: string;
 }
 
-export default function PengeluaranSaaSMulti() {
+interface MasterBelanja {
+  id: string;
+  nama: string;
+  satuanDefault: string;
+}
+
+export default function PengeluaranKasSaaS() {
   const [metaData, setMetaData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     penginput: '',
-    kategori: 'Pengeluaran Bar',
+    kategori: 'Bar' // Default kategori sesuai instruksi
   });
 
-  const [currentItem, setCurrentItem] = useState<ItemForm>({
-    namaItem: '', kuantiti: '', satuan: 'Pcs', hargaSatuan: '' 
+  const [inputItem, setInputItem] = useState({
+    idItem: '',
+    namaManual: '', // Akan dipakai jika memilih opsi "Lainnya"
+    kuantiti: '',
+    satuan: '',
+    hargaSatuan: ''
   });
 
-  const [daftarBelanja, setDaftarBelanja] = useState<BelanjaRecord[]>([]);
+  const [daftarBelanja, setDaftarBelanja] = useState<BelanjaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
-  const daftarKategori = ["Pengeluaran Bar", "Pengeluaran Dapur", "Pengeluaran Lain2"];
-  const saranItem = ["Es Batu", "Galon Air", "Gas LPG 3kg", "Telur", "Minyak Goreng", "Plastik Kresek", "Tisu"];
-  const daftarSatuan = ["Pcs", "Ball", "Kg", "Liter", "Galon", "Tabung", "Pack"];
+  // Kunci nama kru
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
+  
+  // Update Kategori sesuai instruksi
+  const daftarKategori = ["Bar", "Dapur", "Lain-lain"];
+  const daftarSatuan = ["Pcs", "Pack", "Kg", "Liter", "Galon", "Ikat", "Dus", "Bal", "Kampit", "Tabung", "Slop"];
 
-  const handleHargaChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const angkaSaja = e.target.value.replace(/\D/g, '');
-    const formatTitik = angkaSaja === '' ? '' : parseInt(angkaSaja, 10).toLocaleString('id-ID');
-    setCurrentItem({ ...currentItem, hargaSatuan: formatTitik });
+  // MASTER DATA: Barang yang rutin dibeli
+  const masterBarangBelanja: MasterBelanja[] = [
+    { id: "B-001", nama: "Es Batu Kristal", satuanDefault: "Kampit" },
+    { id: "B-002", nama: "Air Mineral (Galon)", satuanDefault: "Galon" },
+    { id: "B-003", nama: "Gas Elpiji 3kg", satuanDefault: "Tabung" },
+    { id: "B-004", nama: "Tisu Wajah / Napkin", satuanDefault: "Pack" },
+    { id: "B-005", nama: "Sabun Cuci Piring (Sunlight)", satuanDefault: "Pouch" },
+    { id: "B-006", nama: "Spons Cuci Piring", satuanDefault: "Pcs" },
+    { id: "B-007", nama: "Kantong Plastik / Kresek", satuanDefault: "Pack" },
+    { id: "B-008", nama: "Gelas Plastik Takeaway", satuanDefault: "Slop" },
+    { id: "B-009", nama: "Sedotan (Straw)", satuanDefault: "Pack" },
+    { id: "B-010", nama: "Susu Evaporasi (Dadakan)", satuanDefault: "Kaleng" },
+    { id: "B-011", nama: "Biji Kopi Tambahan (Dadakan)", satuanDefault: "Kg" },
+    { id: "B-999", nama: "Lainnya (Tulis Manual)...", satuanDefault: "Pcs" }, // Opsi Fleksibel
+  ];
+
+  const formatRupiah = (angka: string) => {
+    const nomor = angka.replace(/\D/g, '');
+    return nomor === '' ? '' : parseInt(nomor, 10).toLocaleString('id-ID');
   };
 
-  const qtyInput = parseInt(currentItem.kuantiti) || 0;
-  const hargaSatuanInput = parseInt(currentItem.hargaSatuan.replace(/\./g, '')) || 0;
-  const subtotalItemSaatIni = qtyInput * hargaSatuanInput;
+  const bersihAngka = (teks: string) => {
+    return parseInt(teks.replace(/\./g, ''), 10) || 0;
+  };
+
+  // Handler saat item dropdown dipilih agar otomatis mengganti satuan
+  const handlePilihItem = (e: ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value;
+    const itemDitemukan = masterBarangBelanja.find(b => b.id === selectedId);
+    
+    setInputItem({
+      ...inputItem,
+      idItem: selectedId,
+      namaManual: '', // Reset jika sebelumnya nulis manual
+      satuan: itemDitemukan ? itemDitemukan.satuanDefault : 'Pcs'
+    });
+  };
 
   const handleTambahItem = (e: FormEvent) => {
     e.preventDefault();
-    if (!currentItem.namaItem || !currentItem.kuantiti || !currentItem.hargaSatuan) {
-      alert("Harap lengkapi data barang!");
+    
+    if (!inputItem.idItem) return alert("Pilih barang yang dibeli terlebih dahulu!");
+    
+    // Tentukan nama akhir barang (apakah dari master atau dari ketikan manual)
+    let namaAkhir = "";
+    if (inputItem.idItem === "B-999") {
+      if (!inputItem.namaManual) return alert("Harap ketik nama barang manual yang Anda beli!");
+      namaAkhir = inputItem.namaManual;
+    } else {
+      const itemDitemukan = masterBarangBelanja.find(b => b.id === inputItem.idItem);
+      namaAkhir = itemDitemukan ? itemDitemukan.nama : "Barang Tidak Diketahui";
+    }
+
+    if (!inputItem.kuantiti || !inputItem.hargaSatuan) {
+      alert("Harap lengkapi kuantiti dan total harga satuannya!");
       return;
     }
 
-    const indexBarangSama = daftarBelanja.findIndex(
-      (item) => item.namaItem.toLowerCase().trim() === currentItem.namaItem.toLowerCase().trim()
-    );
+    const qty = parseFloat(inputItem.kuantiti);
+    const hargaAsli = bersihAngka(inputItem.hargaSatuan);
+    const totalMurni = qty * hargaAsli;
 
-    if (indexBarangSama !== -1) {
-      const listBaru = [...daftarBelanja];
-      listBaru[indexBarangSama].kuantiti += qtyInput;
-      listBaru[indexBarangSama].nominalAsli += subtotalItemSaatIni;
-      listBaru[indexBarangSama].nominalFormat = listBaru[indexBarangSama].nominalAsli.toLocaleString('id-ID');
-      setDaftarBelanja(listBaru);
-    } else {
-      setDaftarBelanja([...daftarBelanja, {
-        namaItem: currentItem.namaItem,
-        satuan: currentItem.satuan,
-        kuantiti: qtyInput,
-        hargaSatuanAsli: hargaSatuanInput,
-        nominalAsli: subtotalItemSaatIni,
-        nominalFormat: subtotalItemSaatIni.toLocaleString('id-ID')
-      }]);
-    }
+    const itemBaru: BelanjaItem = {
+      namaItem: namaAkhir,
+      kuantiti: qty,
+      satuan: inputItem.satuan,
+      hargaSatuanAsli: hargaAsli,
+      nominalAsli: totalMurni,
+      hargaSatuanDisplay: hargaAsli.toLocaleString('id-ID'),
+      nominalDisplay: totalMurni.toLocaleString('id-ID')
+    };
+
+    setDaftarBelanja([...daftarBelanja, itemBaru]);
     
-    setCurrentItem({ namaItem: '', kuantiti: '', satuan: 'Pcs', hargaSatuan: '' });
+    // Kembalikan inputan ke posisi bersih setelah ditambah ke keranjang
+    setInputItem({ idItem: '', namaManual: '', kuantiti: '', satuan: 'Pcs', hargaSatuan: '' });
   };
 
-  const totalSeluruhnya = daftarBelanja.reduce((total, item) => total + item.nominalAsli, 0);
+  const hapusItem = (index: number) => {
+    setDaftarBelanja(daftarBelanja.filter((_, i) => i !== index));
+  };
 
-  const handleSimpanSemua = () => {
-    if (!metaData.penginput) return alert("Pilih Nama Kru terlebih dahulu!");
-    if (daftarBelanja.length === 0) return alert("Daftar belanja masih kosong!");
+  const handleSimpanSemua = async () => {
+    if (!metaData.penginput) return alert("Pilih Nama Kru penginput terlebih dahulu!");
+    if (daftarBelanja.length === 0) return alert("Keranjang belanja masih kosong!");
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert(`✅ Berhasil Disimpan!\nTotal: Rp ${totalSeluruhnya.toLocaleString('id-ID')}`);
-      setIsSubmitting(false); setDaftarBelanja([]); 
-    }, 1500);
+
+    try {
+      const response = await fetch('/api/pengeluaran', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tanggal: metaData.tanggal,
+          penginput: metaData.penginput,
+          kategori: metaData.kategori,
+          daftarBelanja: daftarBelanja
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        setDaftarBelanja([]); 
+      } else {
+        alert(`❌ Gagal menyimpan: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("❌ Terjadi kegagalan komunikasi jaringan dengan server kas.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const totalPengeluaranNota = daftarBelanja.reduce((sum, item) => sum + item.nominalAsli, 0);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+      
+      {/* Header */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors">
+          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200/80 transition-colors">
             <ChevronLeft size={20} />
           </Link>
-          <h1 className="text-sm font-bold tracking-wide flex items-center gap-2 text-zinc-800">
-            <ShoppingBag size={16} className="text-rose-600" /> Multi-Input Petty Cash
+          <h1 className="text-sm font-bold tracking-wide text-zinc-800 uppercase flex items-center gap-1.5">
+            <Wallet size={16} className="text-rose-500" /> Log Pengeluaran Kas
           </h1>
           <div className="w-9 h-9"></div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-6 space-y-5">
+      <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
         
-        {/* INFORMASI STRUK */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 border-b border-zinc-100 pb-2 mb-2">
-            <ReceiptText size={16} className="text-zinc-500"/> Informasi Struk
-          </div>
+        {/* BLOK METADATA NOTA */}
+        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none" required />
-            <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none" required>
-              <option value="">Pilih Kru...</option>
-              {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </div>
-          <select value={metaData.kategori} onChange={(e) => setMetaData({...metaData, kategori: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none">
-            {daftarKategori.map(k => <option key={k} value={k}>{k.replace('Pengeluaran ', '')}</option>)}
-          </select>
-        </div>
-
-        {/* INPUT ITEMS FORM MUTASI */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4 relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
-          
-          <form onSubmit={handleTambahItem} className="space-y-4">
-            <input type="text" list="saran-barang" placeholder="Nama Barang (Cth: Galon Air)" value={currentItem.namaItem} onChange={(e) => setCurrentItem({...currentItem, namaItem: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none" required />
-            <datalist id="saran-barang">{saranItem.map(i => <option key={i} value={i} />)}</datalist>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative">
-                <Package size={14} className="absolute left-3 top-3.5 text-zinc-400" />
-                <input type="number" placeholder="Qty (Cth: 5)" value={currentItem.kuantiti} onChange={(e) => setCurrentItem({...currentItem, kuantiti: e.target.value})} className="w-full pl-9 p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none" required />
-              </div>
-              <select value={currentItem.satuan} onChange={(e) => setCurrentItem({...currentItem, satuan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none">
-                {daftarSatuan.map(s => <option key={s} value={s}>{s}</option>)}
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal Nota</label>
+              <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Kru Penginput</label>
+              <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
+                <option value="">-- Pilih --</option>
+                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
-
-            <div className="flex bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-rose-500 transition-all shadow-sm">
-              <div className="bg-zinc-100 border-r border-zinc-300 px-4 py-3 text-zinc-500"><Banknote size={16} /></div>
-              <div className="flex items-center pl-3"><span className="text-zinc-500 font-semibold text-sm">Rp</span></div>
-              <input type="text" inputMode="numeric" placeholder="Harga Satuan..." value={currentItem.hargaSatuan} onChange={handleHargaChange} className="w-full p-3 text-zinc-900 font-bold text-lg bg-transparent outline-none" required />
-            </div>
-
-            <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 flex justify-between items-center text-sm">
-              <span className="font-semibold text-rose-800 flex items-center gap-2"><Calculator size={16} />Subtotal:</span>
-              <span className="font-black text-rose-700">Rp {subtotalItemSaatIni.toLocaleString('id-ID')}</span>
-            </div>
-
-            <button type="submit" className="w-full py-3 rounded-xl text-sm font-bold text-rose-600 bg-white border-2 border-rose-200 hover:bg-rose-50 transition-all flex items-center justify-center gap-2">
-              <Plus size={18} /> MASUKKAN KE DAFTAR
-            </button>
-          </form>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Alokasi Kategori Kas</label>
+            <select value={metaData.kategori} onChange={(e) => setMetaData({...metaData, kategori: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer">
+              {daftarKategori.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* BATCH DARK VIEW CART */}
+        {/* INPUT MULTI-ITEM BELANJA PINTAR */}
+        <form onSubmit={handleTambahItem} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4 relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Tambah Item Belanjaan</span>
+          
+          <div className="space-y-3">
+            {/* DROPDOWN MASTER BARANG */}
+            <select 
+              value={inputItem.idItem} 
+              onChange={handlePilihItem} 
+              className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold text-zinc-800 outline-none focus:bg-white cursor-pointer" 
+              required
+            >
+              <option value="">-- Pilih Barang yang Dibeli --</option>
+              {masterBarangBelanja.map(b => <option key={b.id} value={b.id}>{b.nama}</option>)}
+            </select>
+
+            {/* MUNCUL OTOMATIS JIKA PILIH "LAINNYA" */}
+            {inputItem.idItem === "B-999" && (
+              <input 
+                type="text" 
+                placeholder="Ketik nama barang manual..." 
+                value={inputItem.namaManual} 
+                onChange={(e) => setInputItem({...inputItem, namaManual: e.target.value})} 
+                className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white border-l-4 border-l-rose-400" 
+                required 
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <input type="number" placeholder="Qty" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
+            <select value={inputItem.satuan} onChange={(e) => setInputItem({...inputItem, satuan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-700 outline-none cursor-pointer">
+              {daftarSatuan.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input type="text" inputMode="numeric" placeholder="Harga Satuan" value={inputItem.hargaSatuan} onChange={(e) => setInputItem({...inputItem, hargaSatuan: formatRupiah(e.target.value)})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
+          </div>
+
+          <button type="submit" className="w-full py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-zinc-800 transition-colors">
+            <Plus size={14} strokeWidth={2.5} /> Masukkan Ke Daftar Nota
+          </button>
+        </form>
+
+        {/* DAFTAR KERANJANG NOTA */}
         {daftarBelanja.length > 0 && (
           <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-md text-white space-y-4">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block border-b border-zinc-700 pb-2">Rincian Nota ({daftarBelanja.length} Item)</span>
-            
-            <div className="space-y-3 max-h-48 overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1"><ShoppingCart size={12} /> Daftar Item Nota</span>
+              <span className="text-xs font-black text-rose-400">Rp {totalPengeluaranNota.toLocaleString('id-ID')}</span>
+            </div>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {daftarBelanja.map((item, idx) => (
-                <div key={idx} className="bg-zinc-800 p-3 rounded-xl flex justify-between items-center text-xs">
-                  <div className="flex-1">
+                <div key={idx} className="bg-zinc-800/90 p-3 rounded-xl border border-zinc-700/60 text-xs flex justify-between items-center">
+                  <div>
                     <h4 className="font-bold text-white">{item.namaItem}</h4>
-                    <p className="text-[10px] text-indigo-300 mt-1">{item.kuantiti} {item.satuan} x Rp {item.hargaSatuanAsli.toLocaleString('id-ID')}</p>
+                    <p className="text-[10px] text-zinc-400 mt-1 font-medium">
+                      {item.kuantiti} {item.satuan} × Rp {item.hargaSatuanDisplay}
+                    </p>
                   </div>
-                  <div className="text-right flex items-center gap-3">
-                    <span className="font-bold text-white">Rp {item.nominalFormat}</span>
-                    <button onClick={() => setDaftarBelanja(daftarBelanja.filter((_, i) => i !== idx))} className="p-1.5 text-zinc-400 hover:text-rose-400"><Trash2 size={16} /></button>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-zinc-200">Rp {item.nominalDisplay}</span>
+                    <button type="button" onClick={() => hapusItem(idx)} className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="bg-black/30 p-4 rounded-xl border border-zinc-700 flex justify-between items-center text-xs">
-              <span className="text-xs font-medium text-zinc-400">Total Keseluruhan</span>
-              <span className="text-2xl font-black text-rose-400">Rp {totalSeluruhnya.toLocaleString('id-ID')}</span>
-            </div>
-
-            <button onClick={handleSimpanSemua} disabled={isSubmitting} className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all">
-              <CheckCircle2 size={18} /> SIMPAN SEMUA PENGELUARAN
+            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
+              <CheckCircle2 size={14} /> {isSubmitting ? 'Membukukan ke Sheets...' : 'KUNCI & SIMPAN SEMUA PENGELUARAN'}
             </button>
           </div>
         )}
