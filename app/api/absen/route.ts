@@ -19,28 +19,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Inisialisasi Otentikasi Google Auth
-    const auth = new google.auth.JWT(
-      clientEmail,
-      undefined,
-      privateKey.replace(/\\n/g, '\n'), // Kebal terhadap masalah format baris baru di beberapa hosting
-      ['https://www.googleapis.com/auth/spreadsheets']
-    );
+    // 3. FIX: Gunakan satu objek opsi konfigurasi {} agar sesuai dengan aturan TypeScript google-auth
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey.replace(/\\n/g, '\n'), // Mengamankan format baris baru string key
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // 4. Siapkan data baris baru yang akan dimasukkan (Gunakan Waktu Server WIB jika memungkinkan)
+    // 4. Siapkan penanggalan data baris baru
     const tanggalSekarang = new Date().toISOString().split('T')[0];
     const waktuSekarang = new Date().toTimeString().split(' ')[0];
 
-    // Menyusun kolom: Tanggal, Waktu, Nama, Shift, Status, Link/Data Foto
+    // Menyusun kolom: Tanggal, Waktu, Nama, Shift, Status, Data Foto
     const barisBaru = [tanggalSekarang, waktuSekarang, nama, shift, status, fotoBase64];
 
     // 5. Eksekusi penulisan data ke dalam Google Sheets (Lembar: "Absen")
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Absen!A:F', // Mengarah ke Lembar bernama "Absen" dari kolom A sampai F
-      valueInputOption: 'USER_ENTERED', // Mengizinkan Google Sheets memformat otomatis data (seperti tanggal/angka)
+      range: 'Absen!A:F', 
+      valueInputOption: 'USER_ENTERED', 
       requestBody: {
         values: [barisBaru],
       },
