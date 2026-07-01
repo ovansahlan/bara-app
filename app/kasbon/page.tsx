@@ -1,159 +1,159 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, FormEvent } from 'react';
 import Link from 'next/link';
-import { 
-  CreditCard, User, Calendar, ChevronLeft, 
-  CheckCircle2, Banknote, FileText, AlertCircle 
-} from 'lucide-react';
+import { ChevronLeft, CheckCircle2, RefreshCw, Landmark, HelpCircle } from 'lucide-react';
 
-export default function KasbonSaaSTypeScript() {
+export default function InputKasbonSaaS() {
   const [formData, setFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
-    namaKru: '', 
-    nominal: '', 
+    namaKru: '',
+    nominal: '',
     keterangan: ''
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
 
-  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
-  const saranKeterangan = ["Kebutuhan rumah", "Kebutuhan anak (Susu/Pempers)", "Bayar cicilan / tagihan", "Berobat / Sakit", "Transportasi / Bensin"];
-
-  // FIX: Parameter 'e' sekarang diberikan tipe ChangeEvent yang spesifik untuk HTMLInputElement
-  const handleNominalChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const angkaSaja = e.target.value.replace(/\D/g, '');
-    const formatTitik = angkaSaja === '' ? '' : parseInt(angkaSaja, 10).toLocaleString('id-ID');
-    setFormData({ ...formData, nominal: formatTitik });
+  const formatRupiah = (angka: string) => {
+    const nomor = angka.replace(/\D/g, '');
+    return nomor === '' ? '' : parseInt(nomor, 10).toLocaleString('id-ID');
   };
 
-  // FIX: Parameter 'e' diberikan tipe FormEvent untuk menangani submit form
-  const handleAjukan = (e: FormEvent) => {
+  const bersihAngka = (teks: string) => {
+    return parseInt(teks.replace(/\./g, ''), 10) || 0;
+  };
+
+  const handleSimpanKasbon = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.namaKru || !formData.nominal || !formData.keterangan) return alert("Lengkapi data!");
+    if (!formData.namaKru) return alert("Pilih nama Kru yang mengajukan kasbon!");
     
-    const nominalAsli = parseInt(formData.nominal.replace(/\./g, ''), 10);
-    if (!window.confirm(`Konfirmasi Kasbon Kru: ${formData.namaKru} sebesar Rp ${nominalAsli.toLocaleString('id-ID')}?`)) return;
+    const nominalAsli = bersihAngka(formData.nominal);
+    if (nominalAsli <= 0) return alert("Nominal kasbon tidak valid!");
+    if (!formData.keterangan.trim()) return alert("Harap isi keterangan tujuan kasbon!");
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert("Kasbon karyawan berhasil dikunci.");
+
+    try {
+      const response = await fetch('/api/kasbon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tanggal: formData.tanggal,
+          namaKru: formData.namaKru,
+          nominalAsli: nominalAsli,
+          keterangan: formData.keterangan
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        // Reset form inputan nominal dan keterangan setelah berhasil
+        setFormData({ ...formData, nominal: '', keterangan: '' });
+      } else {
+        alert(`❌ Gagal menyimpan kasbon: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("❌ Terjadi gangguan jaringan ke server.");
+    } finally {
       setIsSubmitting(false);
-      setFormData({ tanggal: new Date().toISOString().split('T')[0], namaKru: '', nominal: '', keterangan: '' });
-    }, 1500);
+    }
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      {/* Header SaaS Profile */}
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+      {/* Header Navigasi */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors">
+          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200/80 transition-colors">
             <ChevronLeft size={20} />
           </Link>
-          <h1 className="text-sm font-bold tracking-wide flex items-center gap-2 text-zinc-800">
-            <CreditCard size={16} className="text-amber-600" /> Manajemen Kasbon
+          <h1 className="text-sm font-bold tracking-wide text-zinc-800 uppercase flex items-center gap-1.5">
+            <Landmark size={16} className="text-amber-500" /> Log Kasbon Kru
           </h1>
           <div className="w-9 h-9"></div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-6">
-        <form onSubmit={handleAjukan} className="space-y-5">
+      <div className="max-w-md mx-auto px-4 mt-5">
+        
+        <form onSubmit={handleSimpanKasbon} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4">
           
-          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
-            {/* Grid Tanggal & Nama */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Tanggal</label>
-                <div className="relative">
-                  <Calendar size={14} className="absolute left-3 top-3 text-zinc-400" />
-                  <input 
-                    type="date" 
-                    value={formData.tanggal} 
-                    onChange={(e) => setFormData({...formData, tanggal: e.target.value})} 
-                    className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" 
-                    required 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Nama Kru</label>
-                <div className="relative">
-                  <User size={14} className="absolute left-3 top-3 text-zinc-400" />
-                  <select 
-                    value={formData.namaKru} 
-                    onChange={(e) => setFormData({...formData, namaKru: e.target.value})} 
-                    className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none appearance-none focus:bg-white" 
-                    required
-                  >
-                    <option value="">Pilih Kru...</option>
-                    {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Input Alasan */}
+          {/* BARIS TANGGAL & NAMA */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Alasan Pengajuan</label>
-              <div className="relative">
-                <FileText size={14} className="absolute left-3 top-3.5 text-zinc-400" />
-                <input 
-                  type="text" 
-                  list="saran-alasan" 
-                  placeholder="Cth: Kebutuhan mendesak rumah..." 
-                  value={formData.keterangan} 
-                  onChange={(e) => setFormData({...formData, keterangan: e.target.value})} 
-                  className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" 
-                  required 
-                />
-                <datalist id="saran-alasan">
-                  {saranKeterangan.map(i => <option key={i} value={i} />)}
-                </datalist>
-              </div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal Log</label>
+              <input 
+                type="date" 
+                value={formData.tanggal} 
+                onChange={(e) => setFormData({...formData, tanggal: e.target.value})} 
+                className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" 
+                required 
+              />
             </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nama Anggota Staf</label>
+              <select 
+                value={formData.namaKru} 
+                onChange={(e) => setFormData({...formData, namaKru: e.target.value})} 
+                className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" 
+                required
+              >
+                <option value="">-- Pilih Kru --</option>
+                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+          </div>
+          
+          {/* BARIS KETERANGAN BELANJA */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Alasan / Keterangan Pinjaman</label>
+            <input 
+              type="text" 
+              placeholder="Contoh: Kebutuhan rumah tangga / Susu anak" 
+              value={formData.keterangan} 
+              onChange={(e) => setFormData({...formData, keterangan: e.target.value})} 
+              className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" 
+              required 
+            />
+          </div>
 
-            {/* Input Nominal Otomatis Titik */}
-            <div className="pt-2">
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Nominal Pinjaman</label>
-              <div className="flex bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-amber-500 shadow-sm transition-all">
-                <div className="bg-zinc-100 border-r border-zinc-300 px-4 py-3 flex items-center text-zinc-500">
-                  <Banknote size={18} />
-                </div>
-                <div className="flex items-center pl-3">
-                  <span className="text-zinc-500 font-semibold text-sm">Rp</span>
-                </div>
-                <input 
-                  type="text" 
-                  inputMode="numeric" 
-                  placeholder="0" 
-                  value={formData.nominal} 
-                  onChange={handleNominalChange} 
-                  className="w-full p-3 text-zinc-900 font-bold text-lg bg-transparent outline-none" 
-                  required 
-                />
+          {/* INPUT NOMINAL KASBON RATA KANAN (RIGHT-ALIGNED) ANTI TUMPANG TINDIH */}
+          <div className="pt-2 border-t border-zinc-100">
+            <div className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-amber-400 focus-within:bg-white transition-all">
+              <div className="flex items-center gap-1.5 px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[130px]">
+                <HelpCircle size={14} className="text-zinc-500" />
+                <span className="text-[11px] font-bold text-zinc-600">Nominal Kasbon</span>
               </div>
+              <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
+              <input 
+                type="text" 
+                inputMode="numeric" 
+                placeholder="0" 
+                value={formData.nominal} 
+                onChange={(e) => setFormData({...formData, nominal: formatRupiah(e.target.value)})} 
+                className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" 
+                required 
+              />
             </div>
           </div>
 
-          {/* SaaS Alert Warning Box */}
-          <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-xl flex gap-3 items-start">
-            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800 leading-relaxed font-medium">
-              Sistem akan mencatat pengeluaran ini dan <strong className="font-bold text-amber-900">memotong total gaji bersih (take-home pay)</strong> karyawan secara otomatis pada akhir periode bulan berjalan.
-            </p>
-          </div>
-
+          {/* TOMBOL AKSI */}
           <button 
             type="submit" 
             disabled={isSubmitting} 
-            className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-sm shadow-md transition-all active:scale-95 flex items-center justify-center"
+            className={`w-full py-4 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${
+              isSubmitting ? 'bg-zinc-400 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600'
+            }`}
           >
-            {isSubmitting ? 'MEMPROSES TRANSAKSI...' : 'KUNCI & AJUKAN POTONG GAJI'}
+            {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+            {isSubmitting ? 'Mencatat Kasbon...' : 'SAHKAN PINJAMAN KASBON'}
           </button>
-          
         </form>
+
       </div>
     </div>
   );
