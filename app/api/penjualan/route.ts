@@ -25,13 +25,15 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
+    // Tarik data dari A sampai H (H adalah kolom Total Penjualan)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Penjualan!A:H', 
     });
 
     const rows = response.data.values || [];
-    
+    let totalOmsetPagi = 0;
+
     // Objek penampung rincian akumulasi shift pagi
     const rincianPagi = {
       tunai: 0,
@@ -71,6 +73,11 @@ export async function POST(request: Request) {
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
+    // FIX: Tambahkan pengecekan null di sini agar TypeScript compiler tidak protes
+    if (!spreadsheetId || !clientEmail || !privateKey) {
+      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
+    }
+
     const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
       email: clientEmail,
@@ -80,6 +87,8 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
+    // Format Kolom Sesuai Permintaan: 
+    // A:Tanggal | B:Nama Kasir | C:Shift | D:Tunai | E:Qris | F:EDC/Transfer | G:Grab/Online | H:Total Penjualan
     const barisBaru = [tanggal, namaKasir, shift, tunai, qris, edcTransfer, grabOnline, totalPenjualan];
 
     await sheets.spreadsheets.values.append({
