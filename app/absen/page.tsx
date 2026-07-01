@@ -7,7 +7,7 @@ import { Camera, User, Clock, CheckCircle2, RefreshCw, ChevronLeft, Calendar } f
 export default function AbsensiSaaS() {
   const [waktu, setWaktu] = useState('');
   const [formData, setFormData] = useState({ nama: '', shift: '', status: 'Masuk' });
-  const [stream, setStream] = useState();
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [fotoBase64, setFotoBase64] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
