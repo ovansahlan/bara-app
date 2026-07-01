@@ -31,11 +31,11 @@ export async function GET(request: Request) {
 
     // Ambil semua data tab utama
     const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'DB_Penjualan!A:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'DB_Pengeluaran!A:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'DB_Kasbon!A:C' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock-In!A:G' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock-Out!A:G' })
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:C' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock_Masuk!A:G' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock_KeluarA:G' })
     ]);
 
     // VARIABEL UNTUK HARI INI / TANGGAL TERPILIH
