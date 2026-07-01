@@ -1,213 +1,270 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { 
-  Receipt, User, Calendar, ChevronLeft, CheckCircle2, 
-  Plus, Trash2, Layers, Landmark, CreditCard, Store
-} from 'lucide-react';
+import { ChevronLeft, CheckCircle2, TrendingUp, Info, RefreshCw, Banknote, QrCode, CreditCard, Smartphone } from 'lucide-react';
 
-// Interface struktur form input penampung teks ribuan
-interface OmsetForm {
-  lokasi: string;
-  shift: string;
-  tunai: string;
-  qris: string;
-  edc: string;
-  grab: string;
-  [key: string]: string; // Trik utama agar TypeScript mengizinkan akses dinamis via properti string
-}
-
-// Interface rekaman data bersih di dalam keranjang (cart)
-interface OmsetRecord {
-  lokasi: string;
-  shift: string;
+interface RincianOmset {
   tunai: number;
   qris: number;
-  edc: number;
-  grab: number;
-  total: number;
+  edcTransfer: number;
+  grabOnline: number;
+  totalPenjualan: number;
 }
 
-export default function PenjualanSaaSMulti() {
-  const [metaData, setMetaData] = useState({
+export default function InputOmsetSaaS() {
+  const [formData, setFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
-    kasir: '',
+    namaKasir: '',
+    shift: 'Shift 1 (Pagi)'
   });
 
-  const [currentOmset, setCurrentOmset] = useState<OmsetForm>({
-    lokasi: 'Kedai Utama',
-    shift: 'Shift 1 (Pagi)',
-    tunai: '', qris: '', edc: '', grab: ''
+  const [omset, setOmset] = useState({
+    tunai: '',
+    qris: '',
+    edcTransfer: '',
+    grabOnline: ''
   });
 
-  const [daftarOmset, setDaftarOmset] = useState<OmsetRecord[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [omsetPagi, setOmsetPagi] = useState<RincianOmset | null>(null);
+  const [isLoadingHelper, setIsLoadingHelper] = useState<boolean>(false);
 
-  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
   const daftarShift = ["Shift 1 (Pagi)", "Shift 2 (Malam/Tutup)", "Full Day (Gabungan)"];
 
-  const formatInputRupiah = (val: string) => {
-    const angkaSaja = val.replace(/\D/g, '');
-    return angkaSaja === '' ? '' : parseInt(angkaSaja, 10).toLocaleString('id-ID');
+  const formatRupiah = (angka: string) => {
+    const nomor = angka.replace(/\D/g, '');
+    return nomor === '' ? '' : parseInt(nomor, 10).toLocaleString('id-ID');
   };
 
-  const handleMoneyChange = (field: string, value: string) => {
-    setCurrentOmset({ ...currentOmset, [field]: formatInputRupiah(value) });
+  const bersihAngka = (teks: string) => {
+    return parseInt(teks.replace(/\./g, ''), 10) || 0;
   };
 
-  const tunaiAsli = parseInt((currentOmset.tunai || '').replace(/\./g, '')) || 0;
-  const qrisAsli = parseInt((currentOmset.qris || '').replace(/\./g, '')) || 0;
-  const edcAsli = parseInt((currentOmset.edc || '').replace(/\./g, '')) || 0;
-  const grabAsli = parseInt((currentOmset.grab || '').replace(/\./g, '')) || 0;
-  const subtotalCurrent = tunaiAsli + qrisAsli + edcAsli + grabAsli;
+  // HELPER SHIFT MALAM DENGAN RINCIAN LENGKAP
+  useEffect(() => {
+    const fetchOmsetPagi = async () => {
+      if (formData.shift === 'Shift 2 (Malam/Tutup)') {
+        setIsLoadingHelper(true);
+        setOmsetPagi(null);
+        try {
+          const res = await fetch(`/api/penjualan?tanggal=${formData.tanggal}`);
+          const data = await res.json();
+          if (res.ok) {
+            setOmsetPagi(data);
+          }
+        } catch (error) {
+          console.error("Gagal menarik data rincian shift pagi", error);
+        } finally {
+          setIsLoadingHelper(false);
+        }
+      } else {
+        setOmsetPagi(null); 
+      }
+    };
 
-  const handleTambahOmset = (e: FormEvent) => {
+    fetchOmsetPagi();
+  }, [formData.shift, formData.tanggal]);
+
+  const totalOmsetRealtime = bersihAngka(omset.tunai) + bersihAngka(omset.qris) + bersihAngka(omset.edcTransfer) + bersihAngka(omset.grabOnline);
+
+  const handleSimpanOmset = async (e: FormEvent) => {
     e.preventDefault();
-    if (!metaData.kasir) return alert("Pilih Nama Kasir terlebih dahulu!");
-    if (subtotalCurrent === 0) return alert("Masukkan nominal minimal di salah satu metode pembayaran!");
+    if (!formData.namaKasir) return alert("Pilih Nama Kasir terlebih dahulu!");
+    if (totalOmsetRealtime <= 0) return alert("Total penjualan belum diisi atau tidak valid!");
 
-    const indexSama = daftarOmset.findIndex(
-      item => item.lokasi === currentOmset.lokasi && item.shift === currentOmset.shift
-    );
-
-    if (indexSama !== -1) {
-      const listBaru = [...daftarOmset];
-      listBaru[indexSama].tunai += tunaiAsli;
-      listBaru[indexSama].qris += qrisAsli;
-      listBaru[indexSama].edc += edcAsli;
-      listBaru[indexSama].grab += grabAsli;
-      listBaru[indexSama].total += subtotalCurrent;
-      setDaftarOmset(listBaru);
-    } else {
-      setDaftarOmset([...daftarOmset, {
-        lokasi: currentOmset.lokasi,
-        shift: currentOmset.shift,
-        tunai: tunaiAsli, qris: qrisAsli, edc: edcAsli, grab: grabAsli,
-        total: subtotalCurrent
-      }]);
-    }
-
-    setCurrentOmset({ ...currentOmset, tunai: '', qris: '', edc: '', grab: '' });
-  };
-
-  const grandTotalOmset = daftarOmset.reduce((sum, item) => sum + item.total, 0);
-
-  const handleSimpanFinal = () => {
-    if (daftarOmset.length === 0) return alert("Daftar laporan omset masih kosong!");
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert(`✅ Sukses Disimpan!\nTotal: Rp ${grandTotalOmset.toLocaleString('id-ID')}`);
-      setIsSubmitting(false); setDaftarOmset([]);
-    }, 1500);
+
+    try {
+      const response = await fetch('/api/penjualan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tanggal: formData.tanggal,
+          namaKasir: formData.namaKasir,
+          shift: formData.shift,
+          tunai: bersihAngka(omset.tunai),
+          qris: bersihAngka(omset.qris),
+          edcTransfer: bersihAngka(omset.edcTransfer),
+          grabOnline: bersihAngka(omset.grabOnline),
+          totalPenjualan: totalOmsetRealtime
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        setOmset({ tunai: '', qris: '', edcTransfer: '', grabOnline: '' });
+      } else {
+        alert(`❌ Gagal menyimpan omset: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("❌ Terjadi gangguan jaringan ke server.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors">
+          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200/80 transition-colors">
             <ChevronLeft size={20} />
           </Link>
-          <h1 className="text-sm font-bold tracking-wide flex items-center gap-2 text-zinc-800">
-            <Receipt size={16} className="text-emerald-600" /> Pelaporan Omset Shift
+          <h1 className="text-sm font-bold tracking-wide text-zinc-800 uppercase flex items-center gap-1.5">
+            <TrendingUp size={16} className="text-emerald-500" /> Setor Omset
           </h1>
           <div className="w-9 h-9"></div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-6 space-y-5">
+      <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
         
-        {/* BLOCK KASIR */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Tanggal Laporan</label>
-            <div className="relative">
-              <Calendar size={14} className="absolute left-3 top-3.5 text-zinc-400" />
-              <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none" required />
-            </div>
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Kasir Bertugas</label>
-            <div className="relative">
-              <User size={14} className="absolute left-3 top-3.5 text-zinc-400" />
-              <select value={metaData.kasir} onChange={(e) => setMetaData({...metaData, kasir: e.target.value})} className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none appearance-none" required>
-                <option value="">Pilih...</option>
-                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* FORM INPUT NOMINAL MUTASI */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4 relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+        <form onSubmit={handleSimpanOmset} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-5">
           
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Outlet</label>
-              <select value={currentOmset.lokasi} onChange={(e) => setCurrentOmset({...currentOmset, lokasi: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold outline-none">
-                <option value="Kedai Utama">☕ Kedai Utama</option>
-                <option value="Gerobak">🛒 Gerobak Bajay</option>
-              </select>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal</label>
+              <input type="date" value={formData.tanggal} onChange={(e) => setFormData({...formData, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" required />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Shift Kerja</label>
-              <select value={currentOmset.shift} onChange={(e) => setCurrentOmset({...currentOmset, shift: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold outline-none">
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Shift</label>
+              <select value={formData.shift} onChange={(e) => setFormData({...formData, shift: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer">
                 {daftarShift.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
-
-          <div className="space-y-3 pt-2">
-            {[
-              { id: 'tunai', label: 'Uang Tunai (Laci)', icon: <Store size={14} />, color: 'focus-within:ring-emerald-500' },
-              { id: 'qris', label: 'QRIS Digital', icon: <Landmark size={14} />, color: 'focus-within:ring-blue-500' },
-              { id: 'edc', label: 'EDC / Transfer Bank', icon: <CreditCard size={14} />, color: 'focus-within:ring-purple-500' },
-              { id: 'grab', label: 'GrabFood / Online', icon: <Layers size={14} />, color: 'focus-within:ring-teal-500' },
-            ].map(ch => (
-              <div key={ch.id} className={`flex bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:ring-2 ${ch.color} transition-all`}>
-                <div className="bg-zinc-100 px-3.5 flex items-center border-r text-zinc-400">{ch.icon}</div>
-                <input type="text" inputMode="numeric" placeholder={`Nominal ${ch.label}...`} value={currentOmset[ch.id]} onChange={(e: ChangeEvent<HTMLInputElement>) => handleMoneyChange(ch.id, e.target.value)} className="w-full p-2.5 text-sm font-bold text-zinc-800 bg-transparent outline-none" />
-              </div>
-            ))}
+          
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nama Kasir</label>
+            <select value={formData.namaKasir} onChange={(e) => setFormData({...formData, namaKasir: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
+              <option value="">-- Pilih Kasir --</option>
+              {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
           </div>
 
-          <button onClick={handleTambahOmset} className="w-full py-3 bg-zinc-950 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1">
-            <Plus size={14} strokeWidth={3} /> TAMBAH REKAP SHIFT
-          </button>
-        </div>
+          {/* HELPER SHIFT MALAM DENGAN RINCIAN MULTI-KATEGORI */}
+          {formData.shift === 'Shift 2 (Malam/Tutup)' && (
+            <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-3 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                {isLoadingHelper ? (
+                  <RefreshCw size={16} className="text-sky-500 animate-spin mt-0.5" />
+                ) : (
+                  <Info size={16} className="text-sky-500 mt-0.5 shrink-0" />
+                )}
+                <div>
+                  <p className="text-[10px] font-bold text-sky-700 uppercase tracking-wide">Helper Hitung Malam</p>
+                  <p className="text-xs text-sky-800 font-medium mt-0.5">
+                    {isLoadingHelper ? "Sedang menyinkronkan data kas..." : "Berikut adalah rekapitulasi data dari Shift Pagi hari ini:"}
+                  </p>
+                </div>
+              </div>
 
-        {/* PREVIEW RANGKUMAN BATCH KASIR */}
-        {daftarOmset.length > 0 && (
-          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-md text-white space-y-4">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block border-b border-zinc-800 pb-2">Rangkuman Struk Ganda ({daftarOmset.length} Records)</span>
-            
-            <div className="space-y-2.5 max-h-44 overflow-y-auto">
-              {daftarOmset.map((item, idx) => (
-                <div key={idx} className="bg-zinc-800 p-3 rounded-xl flex justify-between items-center text-xs">
-                  <div>
-                    <h4 className="font-bold text-white flex items-center gap-1.5">{item.lokasi}</h4>
-                    <p className="text-[10px] text-zinc-400 mt-1 font-medium">{item.shift} • Cash:{item.tunai.toLocaleString()} QRIS:{item.qris.toLocaleString()}</p>
+              {!isLoadingHelper && omsetPagi && omsetPagi.totalPenjualan > 0 && (
+                <div className="pt-2.5 border-t border-sky-200/70 space-y-2">
+                  {/* Grid Rincian Tipe Bayar */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-sky-800 font-medium bg-white/50 p-2.5 rounded-lg border border-sky-100">
+                    <div className="flex justify-between"><span>💵 Tunai:</span> <b>{omsetPagi.tunai.toLocaleString('id-ID')}</b></div>
+                    <div className="flex justify-between"><span>📱 QRIS:</span> <b>{omsetPagi.qris.toLocaleString('id-ID')}</b></div>
+                    <div className="flex justify-between"><span>💳 EDC/Trans:</span> <b>{omsetPagi.edcTransfer.toLocaleString('id-ID')}</b></div>
+                    <div className="flex justify-between"><span>🛵 Online:</span> <b>{omsetPagi.grabOnline.toLocaleString('id-ID')}</b></div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-emerald-400">Rp {item.total.toLocaleString('id-ID')}</span>
-                    <button onClick={() => setDaftarOmset(daftarOmset.filter((_, i) => i !== idx))} className="p-1.5 text-zinc-400 hover:text-rose-400"><Trash2 size={14} /></button>
+                  {/* Total Akumulasi Pagi */}
+                  <div className="text-xs font-bold text-sky-950 flex justify-between px-1">
+                    <span>TOTAL PENJUALAN PAGI:</span>
+                    <span className="bg-sky-200 text-sky-950 px-2 py-0.5 rounded-md">Rp {omsetPagi.totalPenjualan.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {!isLoadingHelper && (!omsetPagi || omsetPagi.totalPenjualan === 0) && (
+                <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg text-center">
+                  ⚠️ Belum ada catatan setoran data dari Shift Pagi hari ini.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* INPUT NOMINAL KATEGORI */}
+          <div className="pt-4 border-t border-zinc-100 space-y-3">
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Rincian Nominal Omset</label>
+            
+            {/* Input Tunai */}
+            <div className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-emerald-400 focus-within:bg-white transition-all">
+              <div className="flex items-center gap-2 px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[120px]">
+                <Banknote size={16} className="text-zinc-500" />
+                <span className="text-xs font-bold text-zinc-600">Tunai</span>
+              </div>
+              <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
+              <input 
+                type="text" inputMode="numeric" placeholder="0"
+                value={omset.tunai} 
+                onChange={(e) => setOmset({...omset, tunai: formatRupiah(e.target.value)})} 
+                className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" 
+              />
             </div>
 
-            <div className="bg-black/30 p-3 rounded-xl border border-zinc-800 flex justify-between items-center text-xs">
-              <span className="font-semibold text-zinc-400">Total Revenue Terakumulasi</span>
-              <span className="text-lg font-black text-emerald-400">Rp {grandTotalOmset.toLocaleString('id-ID')}</span>
+            {/* Input QRIS */}
+            <div className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-emerald-400 focus-within:bg-white transition-all">
+              <div className="flex items-center gap-2 px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[120px]">
+                <QrCode size={16} className="text-zinc-500" />
+                <span className="text-xs font-bold text-zinc-600">QRIS</span>
+              </div>
+              <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
+              <input 
+                type="text" inputMode="numeric" placeholder="0"
+                value={omset.qris} 
+                onChange={(e) => setOmset({...omset, qris: formatRupiah(e.target.value)})} 
+                className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" 
+              />
             </div>
 
-            <button onClick={handleSimpanFinal} disabled={isSubmitting} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all">
-              <CheckCircle2 size={16} /> KUNCI & KIRIM SEMUA LAPORAN
-            </button>
+            {/* Input EDC/Transfer */}
+            <div className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-emerald-400 focus-within:bg-white transition-all">
+              <div className="flex items-center gap-2 px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[120px]">
+                <CreditCard size={16} className="text-zinc-500" />
+                <span className="text-xs font-bold text-zinc-600">EDC/Trans</span>
+              </div>
+              <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
+              <input 
+                type="text" inputMode="numeric" placeholder="0"
+                value={omset.edcTransfer} 
+                onChange={(e) => setOmset({...omset, edcTransfer: formatRupiah(e.target.value)})} 
+                className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" 
+              />
+            </div>
+
+            {/* Input Grab/Online */}
+            <div className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-emerald-400 focus-within:bg-white transition-all">
+              <div className="flex items-center gap-2 px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[120px]">
+                <Smartphone size={16} className="text-zinc-500" />
+                <span className="text-xs font-bold text-zinc-600">Grab/Online</span>
+              </div>
+              <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
+              <input 
+                type="text" inputMode="numeric" placeholder="0"
+                value={omset.grabOnline} 
+                onChange={(e) => setOmset({...omset, grabOnline: formatRupiah(e.target.value)})} 
+                className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" 
+              />
+            </div>
           </div>
-        )}
+
+          {/* TOTAL OMSET OTOMATIS */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex justify-between items-center">
+            <span className="text-[11px] font-bold text-emerald-700 uppercase">Total Penjualan</span>
+            <span className="text-lg font-black text-emerald-700">Rp {totalOmsetRealtime.toLocaleString('id-ID')}</span>
+          </div>
+
+          <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-400 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+            {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+            {isSubmitting ? 'Mengunci Data...' : 'SIMPAN TOTAL PENJUALAN'}
+          </button>
+        </form>
 
       </div>
     </div>

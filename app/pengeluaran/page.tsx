@@ -43,11 +43,11 @@ export default function PengeluaranKasSaaS() {
   
   // Update Kategori sesuai instruksi
   const daftarKategori = ["Bar", "Dapur", "Lain-lain"];
-  const daftarSatuan = ["Pcs", "Pack", "Kg", "Liter", "Galon", "Ikat", "Dus", "Bal", "Kampit", "Tabung", "Slop"];
+  const daftarSatuan = ["Pcs", "Pack", "Kg", "Liter", "Galon", "Ikat", "Dus", "Bal", "Ball", "Tabung", "Slop"];
 
   // MASTER DATA: Barang yang rutin dibeli
   const masterBarangBelanja: MasterBelanja[] = [
-    { id: "B-001", nama: "Es Batu Kristal", satuanDefault: "Kampit" },
+    { id: "B-001", nama: "Es Batu Kristal", satuanDefault: "Ball" },
     { id: "B-002", nama: "Air Mineral (Galon)", satuanDefault: "Galon" },
     { id: "B-003", nama: "Gas Elpiji 3kg", satuanDefault: "Tabung" },
     { id: "B-004", nama: "Tisu Wajah / Napkin", satuanDefault: "Pack" },
