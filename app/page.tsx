@@ -2,205 +2,158 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Camera, Receipt, ShoppingBag, Package, 
-  CreditCard, ShieldCheck, AlertCircle, LayoutDashboard,
-  Clock, ArrowRight, User
-} from 'lucide-react';
+import { Store, Camera, Wallet, TrendingUp, Box, Landmark, RefreshCw, CalendarDays } from 'lucide-react';
 
-interface StokAlert {
-  id: string;
-  nama: string;
-  sisa: number;
-  satuan: string;
-}
-
-export default function DashboardSaaS() {
+export default function HomeDashboard() {
   const [waktu, setWaktu] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  const [laporan, setLaporan] = useState({
+    omsetHariIni: 0,
+    pengeluaranHariIni: 0,
+    kasbonHariIni: 0,
+    absenHariIni: 0
+  });
 
+  const hariIniStr = new Date().toISOString().split('T')[0];
+
+  // Jam Realtime
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
-      setWaktu(now.toLocaleString('id-ID', { 
-        weekday: 'long', day: 'numeric', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      }).replace(/,/g, ' •'));
+      setWaktu(now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const stats = { uangLaci: 850000, pettyCash: 125000, omsetTotal: 2450000, kasbonBerjalan: 450000, belanjaOwner: 1500000 };
-  
-  const stokMenipis: StokAlert[] = [
-    { id: "B003", nama: "Susu SKM", sisa: 2, satuan: "Pouch" },
-    { id: "B004", nama: "Creamer", sisa: 1, satuan: "Kg" },
-  ];
+  // Tarik Data API Dashboard
+  const fetchDashboard = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard?tanggal=${hariIniStr}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLaporan({
+          omsetHariIni: data.omsetHariIni || 0,
+          pengeluaranHariIni: data.pengeluaranHariIni || 0,
+          kasbonHariIni: data.kasbonHariIni || 0,
+          absenHariIni: data.absenHariIni || 0
+        });
+      }
+    } catch (error) {
+      console.error("Gagal menarik data dashboard", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [hariIniStr]);
+
+  const formatRupiah = (angka: number) => {
+    return angka.toLocaleString('id-ID');
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-28 font-sans">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
       
-      {/* SaaS Premium Header */}
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-              Workspace
-            </span>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 mt-1">Kedai Kopi Bara</h1>
+      {/* HEADER KONSISTEN DENGAN PAGE LAIN */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
+        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <Store size={18} strokeWidth={2.5} />
+            </div>
+            <h1 className="text-sm font-black tracking-wide text-zinc-800 uppercase">Kedai Kopi Bara</h1>
           </div>
-          <div className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center border border-zinc-200 text-zinc-500 shadow-sm">
-            <User size={18} strokeWidth={2.5} />
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-full">
+            <CalendarDays size={12} /> {waktu || "--:--"}
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-5 space-y-6">
+      <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
         
-        {/* Real-time Status Alert */}
-        <div className="flex items-center justify-center gap-2 py-2 px-4 bg-zinc-100/80 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-600">
-          <Clock size={14} className="text-zinc-400" />
-          <span>{waktu || 'Memuat sistem...'}</span>
-          <span className="flex h-2 w-2 relative ml-1">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-        </div>
+        {/* KARTU DASHBOARD RINGKASAN */}
+        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4">
+          <div className="flex justify-between items-center pb-3 border-b border-zinc-100">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Ringkasan Hari Ini</span>
+            <button onClick={fetchDashboard} disabled={isLoading} className="text-zinc-400 hover:text-indigo-600 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase">
+              <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
 
-        {/* Total Omset Card */}
-        <div className="bg-zinc-900 text-white p-6 rounded-2xl shadow-md border border-zinc-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Receipt size={80} />
-          </div>
-          <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Total Gross Revenue</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h2 className="text-3xl font-extrabold tracking-tight">Rp {stats.omsetTotal.toLocaleString('id-ID')}</h2>
-          </div>
-          <div className="mt-5 pt-4 border-t border-zinc-800 grid grid-cols-4 gap-1 text-center text-[11px] text-zinc-400 font-medium relative z-10">
-            <div><span className="block text-white font-bold mb-0.5">850K</span>Tunai</div>
-            <div><span className="block text-indigo-400 font-bold mb-0.5">1.1M</span>QRIS</div>
-            <div><span className="block text-purple-400 font-bold mb-0.5">300K</span>EDC</div>
-            <div><span className="block text-teal-400 font-bold mb-0.5">200K</span>Grab</div>
-          </div>
-        </div>
-
-        {/* SaaS Core Grid Metrics */}
-        <section className="grid grid-cols-2 gap-4">
-          <div className="bg-white border border-zinc-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-zinc-500">Cash di Laci</span>
-            <h3 className="text-xl font-bold text-zinc-900 mt-2 tracking-tight">
-              Rp {stats.uangLaci.toLocaleString('id-ID')}
-            </h3>
-          </div>
-          <div className="bg-white border border-zinc-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between">
-            <span className="text-xs font-semibold text-zinc-500">Petty Cash Keluar</span>
-            <h3 className="text-xl font-bold text-zinc-900 mt-2 tracking-tight">
-              Rp {stats.pettyCash.toLocaleString('id-ID')}
-            </h3>
-          </div>
-        </section>
-
-        {/* Actions Button Hub */}
-        <section>
-          <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Menu Utama</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Link href="/absen" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
-              <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+            {/* Omset */}
+            <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-xl flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Total Omset</p>
+              <p className="text-sm font-black text-emerald-600">Rp {formatRupiah(laporan.omsetHariIni)}</p>
+            </div>
+            
+            {/* Pengeluaran */}
+            <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-xl flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Pengeluaran</p>
+              <p className="text-sm font-black text-rose-600">Rp {formatRupiah(laporan.pengeluaranHariIni)}</p>
+            </div>
+
+            {/* Kasbon */}
+            <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-xl flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Total Kasbon</p>
+              <p className="text-sm font-black text-amber-600">Rp {formatRupiah(laporan.kasbonHariIni)}</p>
+            </div>
+
+            {/* Absensi */}
+            <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-xl flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Kru Hadir</p>
+              <p className="text-sm font-black text-indigo-600">{laporan.absenHariIni} <span className="text-[10px] text-zinc-400">Orang</span></p>
+            </div>
+          </div>
+        </div>
+
+        {/* MENU NAVIGASI MODUL */}
+        <div className="space-y-3">
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block pl-1">Menu Operasional</span>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/absen" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs hover:border-indigo-300 transition-all flex flex-col items-center justify-center gap-2 group">
+              <div className="w-10 h-10 bg-zinc-50 text-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
                 <Camera size={18} />
               </div>
-              <span className="text-xs font-semibold text-zinc-700">Presensi</span>
+              <span className="text-[11px] font-bold text-zinc-700">Absen Selfie</span>
             </Link>
-            <Link href="/penjualan" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
-              <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <Receipt size={18} />
+
+            <Link href="/penjualan" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs hover:border-emerald-300 transition-all flex flex-col items-center justify-center gap-2 group">
+              <div className="w-10 h-10 bg-zinc-50 text-emerald-600 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-50 transition-all">
+                <TrendingUp size={18} />
               </div>
-              <span className="text-xs font-semibold text-zinc-700">Omset</span>
+              <span className="text-[11px] font-bold text-zinc-700">Setor Omset</span>
             </Link>
-            <Link href="/pengeluaran" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
-              <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <ShoppingBag size={18} />
+
+            <Link href="/pengeluaran" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs hover:border-rose-300 transition-all flex flex-col items-center justify-center gap-2 group">
+              <div className="w-10 h-10 bg-zinc-50 text-rose-600 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-rose-50 transition-all">
+                <Wallet size={18} />
               </div>
-              <span className="text-xs font-semibold text-zinc-700">Belanja</span>
+              <span className="text-[11px] font-bold text-zinc-700">Pengeluaran</span>
             </Link>
-            <Link href="/stok" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
-              <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <Package size={18} />
+
+            <Link href="/stok" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs hover:border-indigo-300 transition-all flex flex-col items-center justify-center gap-2 group">
+              <div className="w-10 h-10 bg-zinc-50 text-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
+                <Box size={18} />
               </div>
-              <span className="text-xs font-semibold text-zinc-700">Logistik</span>
+              <span className="text-[11px] font-bold text-zinc-700">Logistik Gudang</span>
+            </Link>
+
+            <Link href="/kasbon" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs hover:border-amber-300 transition-all flex flex-col items-center justify-center gap-2 group col-span-2">
+              <div className="w-10 h-10 bg-zinc-50 text-amber-600 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-50 transition-all">
+                <Landmark size={18} />
+              </div>
+              <span className="text-[11px] font-bold text-zinc-700">Catat Kasbon Kru</span>
             </Link>
           </div>
-        </section>
-
-        {/* Secondary Menu Rows */}
-        <section className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
-          <Link href="/kasbon" className="flex items-center justify-between p-4 border-b border-zinc-100 hover:bg-zinc-50 transition-colors group">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-zinc-100 rounded-lg text-zinc-600"><CreditCard size={18} /></div>
-              <div>
-                <p className="text-xs font-bold text-zinc-800">Kasbon Karyawan</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Total berjalan: Rp {stats.kasbonBerjalan.toLocaleString('id-ID')}</p>
-              </div>
-            </div>
-            <ArrowRight size={16} className="text-zinc-300 group-hover:text-zinc-600 transition-colors" />
-          </Link>
-          <Link href="/owner/belanja" className="flex items-center justify-between p-4 hover:bg-zinc-50 transition-colors group">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600"><ShieldCheck size={18} /></div>
-              <div>
-                <p className="text-xs font-bold text-zinc-800">Akses Owner</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Input investasi & operasional besar</p>
-              </div>
-            </div>
-            <ArrowRight size={16} className="text-zinc-300 group-hover:text-indigo-600 transition-colors" />
-          </Link>
-        </section>
-
-        {/* Inventory Alerts Box */}
-        <section>
-          <div className="bg-white border border-rose-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
-            <div className="flex items-center gap-2 text-rose-700 font-bold text-xs mb-3">
-              <AlertCircle size={16} />
-              Stok Menipis
-            </div>
-            <div className="space-y-2">
-              {stokMenipis.map((item) => (
-                <div key={item.id} className="flex justify-between items-center bg-zinc-50 border border-zinc-100 px-3 py-2 rounded-lg text-xs">
-                  <span className="font-semibold text-zinc-700">{item.nama}</span>
-                  <span className="text-rose-600 font-bold">Sisa {item.sisa} {item.satuan}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-      </div>
-
-      {/* SaaS Bottom Sticky Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 z-50">
-        <div className="max-w-md mx-auto flex justify-between items-center px-6 py-3">
-          <Link href="/" className="flex flex-col items-center text-indigo-600 gap-1">
-            <LayoutDashboard size={20} />
-            <span className="text-[9px] font-bold">Home</span>
-          </Link>
-          <Link href="/penjualan" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Receipt size={20} />
-            <span className="text-[9px] font-medium">Kasir</span>
-          </Link>
-          <Link href="/absen" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Camera size={20} />
-            <span className="text-[9px] font-medium">Absen</span>
-          </Link>
-          <Link href="/stok" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Package size={20} />
-            <span className="text-[9px] font-medium">Stok</span>
-          </Link>
-          <Link href="/pengeluaran" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <ShoppingBag size={20} />
-            <span className="text-[9px] font-medium">Belanja</span>
-          </Link>
         </div>
-      </div>
 
+      </div>
     </div>
   );
 }

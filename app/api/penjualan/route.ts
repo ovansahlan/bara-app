@@ -4,9 +4,13 @@ import { google } from 'googleapis';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const tanggal = searchParams.get('tanggal');
+    const tanggal = searchParams.get('tanggal'); // Format dari frontend: YYYY-MM-DD
 
     if (!tanggal) return NextResponse.json({ error: 'Tanggal diperlukan' }, { status: 400 });
+
+    // FORMATTER: Ubah "YYYY-MM-DD" menjadi "DD/MM/YYYY"
+    const [year, month, day] = tanggal.split('-');
+    const formatTanggalID = `${day}/${month}/${year}`;
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -25,7 +29,6 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // Tarik data dari A sampai H (H adalah kolom Total Penjualan)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Penjualan!A:H', 
@@ -33,7 +36,6 @@ export async function GET(request: Request) {
 
     const rows = response.data.values || [];
     
-    // Objek penampung rincian akumulasi shift pagi
     const rincianPagi = {
       tunai: 0,
       qris: 0,
@@ -46,7 +48,8 @@ export async function GET(request: Request) {
       const rowTanggal = row[0]; // Kolom A
       const rowShift = row[2];   // Kolom C
 
-      if (rowTanggal === tanggal && rowShift === 'Shift 1 (Pagi)') {
+      // Cek apakah tanggal sama dengan format DD/MM/YYYY atau YYYY-MM-DD (histori lama)
+      if ((rowTanggal === formatTanggalID || rowTanggal === tanggal) && rowShift === 'Shift 1 (Pagi)') {
         rincianPagi.tunai += parseInt(row[3] || '0', 10);
         rincianPagi.qris += parseInt(row[4] || '0', 10);
         rincianPagi.edcTransfer += parseInt(row[5] || '0', 10);
@@ -68,6 +71,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { tanggal, namaKasir, shift, tunai, qris, edcTransfer, grabOnline, totalPenjualan } = body;
 
+    // FORMATTER: Ubah "YYYY-MM-DD" menjadi "DD/MM/YYYY" agar diterima Google Sheets
+    const [year, month, day] = tanggal.split('-');
+    const formatTanggalID = `${day}/${month}/${year}`;
+
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
@@ -85,15 +92,14 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Format Kolom: 
-    // A:Tanggal | B:Nama Kasir | C:Shift | D:Tunai | E:Qris | F:EDC/Transfer | G:Grab/Online | H:Total Penjualan
-    const barisBaru = [tanggal, namaKasir, shift, tunai, qris, edcTransfer, grabOnline, totalPenjualan];
+    // Gunakan formatTanggalID yang sudah diubah formatnya
+    const barisBaru = [formatTanggalID, namaKasir, shift, tunai, qris, edcTransfer, grabOnline, totalPenjualan];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Penjualan!A:H',
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS', // <--- INI OBATNYA: Memaksa Google Sheets bikin baris baru ke bawah
+      insertDataOption: 'INSERT_ROWS', 
       requestBody: { values: [barisBaru] },
     });
 
