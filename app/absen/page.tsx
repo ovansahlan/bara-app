@@ -30,19 +30,18 @@ export default function AbsensiSaaS() {
     return () => clearInterval(timer);
   }, []);
 
-  // FIX UTAMA: Efek ini memantau kapan elemen <video> siap di DOM untuk menerima stream kamera
   useEffect(() => {
     if (stream && videoRef.current) {
       videoRef.current.srcObject = stream;
     }
-  }, [stream]); // Akan berjalan otomatis begitu 'stream' berubah dari null menjadi berisi data
+  }, [stream]);
 
   const bukaKamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' } 
       });
-      setStream(mediaStream); // Cukup set stream ke state, penempelan ke video diurus oleh useEffect di atas
+      setStream(mediaStream);
     } catch (err) {
       alert("Akses kamera ditolak atau tidak tersedia pada perangkat ini.");
     }
@@ -68,25 +67,49 @@ export default function AbsensiSaaS() {
     }
   };
 
-  const handleAbsen = (e: FormEvent) => {
+  // FIX HUBUNGAN API: Sekarang menembak langsung ke API Route Next.js Backend
+  const handleAbsen = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.nama || !formData.shift || !fotoBase64) {
       alert("Harap lengkapi identitas, shift, dan foto wajah Anda!");
       return;
     }
+    
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert("✅ Presensi Berhasil Diverifikasi & Disimpan!");
-      setIsSubmitting(false); 
-      setFotoBase64(null); 
-      setFormData({ nama: '', shift: '', status: 'Masuk' });
-    }, 1500);
+
+    try {
+      const response = await fetch('/api/absen', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nama: formData.nama,
+          shift: formData.shift,
+          status: formData.status,
+          fotoBase64: fotoBase64, // Mengirimkan string foto selfie base64
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        setFotoBase64(null); 
+        setFormData({ nama: '', shift: '', status: 'Masuk' });
+      } else {
+        alert(`❌ Gagal menyimpan: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("❌ Terjadi kesalahan koneksi sistem ke backend.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-10">
-      
-      {/* Header Premium SaaS Style */}
       <div className="bg-white border-b border-zinc-200 sticky top-0 z-20">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors">
@@ -98,32 +121,24 @@ export default function AbsensiSaaS() {
       </div>
 
       <div className="max-w-md mx-auto px-4 mt-5">
-        
-        {/* Widget Live Clock */}
         <div className="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-medium text-zinc-600 shadow-xs mb-6">
           <Clock size={16} className="text-indigo-600" />
           <span>{waktu || "Sinkronisasi waktu server..."}</span>
         </div>
 
         <form onSubmit={handleAbsen} className="space-y-5">
-          
-          {/* Blok Formulir Identitas Staf */}
           <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Nama Anggota Staf</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <User size={16} />
-                </div>
-                <select 
-                  value={formData.nama} 
-                  onChange={(e) => setFormData({...formData, nama: e.target.value})} 
-                  className="w-full pl-10 p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none text-zinc-800 font-medium"
-                >
-                  <option value="">Pilih identitas Anda...</option>
-                  {daftarKru.map((kru, idx) => <option key={idx} value={kru}>{kru}</option>)}
-                </select>
-              </div>
+              <select 
+                value={formData.nama} 
+                onChange={(e) => setFormData({...formData, nama: e.target.value})} 
+                className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none font-medium text-zinc-800"
+                required
+              >
+                <option value="">Pilih identitas Anda...</option>
+                {daftarKru.map((kru, idx) => <option key={idx} value={kru}>{kru}</option>)}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -132,10 +147,11 @@ export default function AbsensiSaaS() {
                 <select 
                   value={formData.shift} 
                   onChange={(e) => setFormData({...formData, shift: e.target.value})} 
-                  className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-zinc-800"
+                  className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-medium text-zinc-800"
+                  required
                 >
                   <option value="">-- Pilih --</option>
-                  {daftarShift.map((s, i) => <option key={i} value={s}>{s.split(' ')[0] + ' ' + s.split(' ')[1]}</option>)}
+                  {daftarShift.map((s, i) => <option key={i} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -143,31 +159,24 @@ export default function AbsensiSaaS() {
                 <select 
                   value={formData.status} 
                   onChange={(e) => setFormData({...formData, status: e.target.value})} 
-                  className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-zinc-800"
+                  className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-medium text-zinc-800"
                 >
-                  <option value="Masuk">📥 Masuk Shift</option>
-                  <option value="Pulang">📤 Pulang Tutup</option>
-                  <option value="Izin">📄 Izin Resmi</option>
-                  <option value="Sakit">🏥 Sakit</option>
+                  <option value="Masuk">Masuk Shift</option>
+                  <option value="Pulang">Pulang Tutup</option>
+                  <option value="Izin">Izin Resmi</option>
+                  <option value="Sakit">Sakit</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Blok Modul Kamera & Capture Biometrik */}
           <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
             <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3 text-center">Verifikasi Wajah (Selfie Toko)</label>
-            
-            <div className="bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden min-h-[260px] transition-all hover:border-indigo-400">
+            <div className="bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden min-h-[260px]">
               {stream && !fotoBase64 && (
                 <>
-                  {/* FIX: Ditambahkan atribut 'muted' agar lolos regulasi auto-play browser mobile (iOS Safari) */}
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-lg shadow-inner" />
-                  <button 
-                    type="button" 
-                    onClick={jepretFoto} 
-                    className="absolute bottom-4 bg-white text-indigo-600 px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 hover:bg-indigo-50 active:scale-95 transition-all border border-zinc-200"
-                  >
+                  <button type="button" onClick={jepretFoto} className="absolute bottom-4 bg-white text-indigo-600 px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border border-zinc-200">
                     <Camera size={18} /> Ambil Foto
                   </button>
                 </>
@@ -175,21 +184,13 @@ export default function AbsensiSaaS() {
               {fotoBase64 && (
                 <>
                   <img src={fotoBase64} alt="Selfie" className="w-full h-full object-cover rounded-lg shadow-inner" />
-                  <button 
-                    type="button" 
-                    onClick={() => { setFotoBase64(null); bukaKamera(); }} 
-                    className="absolute bottom-4 bg-zinc-900 text-white px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 hover:bg-zinc-800 active:scale-95 transition-all"
-                  >
+                  <button type="button" onClick={() => { setFotoBase64(null); bukaKamera(); }} className="absolute bottom-4 bg-zinc-900 text-white px-6 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center gap-2">
                     <RefreshCw size={16} /> Kamera Ulang
                   </button>
                 </>
               )}
               {!stream && !fotoBase64 && (
-                <button 
-                  type="button" 
-                  onClick={bukaKamera} 
-                  className="text-zinc-400 flex flex-col items-center gap-2 hover:text-indigo-600 transition-colors p-10"
-                >
+                <button type="button" onClick={bukaKamera} className="text-zinc-400 flex flex-col items-center gap-2 p-10">
                   <Camera size={40} strokeWidth={1.5} />
                   <span className="text-xs font-semibold tracking-tight text-zinc-500">Ketuk untuk mengaktifkan kamera</span>
                 </button>
@@ -206,9 +207,8 @@ export default function AbsensiSaaS() {
             }`}
           >
             {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            {isSubmitting ? 'Memproses Enkripsi Data...' : 'KIRIM PRESENSI MASUK'}
+            {isSubmitting ? 'Mengirim ke Google Sheets...' : 'KIRIM PRESENSI MASUK'}
           </button>
-          
         </form>
       </div>
     </div>
