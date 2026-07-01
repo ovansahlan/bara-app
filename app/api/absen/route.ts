@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID; // ID Folder Drive Baru
+    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
     if (!spreadsheetId || !clientEmail || !privateKey || !folderId) {
       return NextResponse.json(
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       key: formattedKey,
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file' // Menambahkan scope izin untuk akses menulis file Drive
+        'https://www.googleapis.com/auth/drive' // FIX: Diubah ke scope utama agar bisa menulis ke folder yang di-share
       ],
     });
 
@@ -38,19 +38,17 @@ export async function POST(request: Request) {
     // ==========================================
     const drive = google.drive({ version: 'v3', auth });
 
-    // Membersihkan header data URI base64 jika ada (cth: data:image/jpeg;base64,)
     const cleanBase64 = fotoBase64.replace(/^data:image\/\w+;base64,/, "");
-    // Mengonversi string teks menjadi binary Buffer Node.js asli
     const buffer = Buffer.from(cleanBase64, 'base64');
 
     const responseDrive = await drive.files.create({
       requestBody: {
         name: `Absen_${nama}_${tanggalSekarang}_${waktuSekarang.replace(/:/g, '-')}.jpg`,
-        parents: [folderId], // Dimasukkan ke folder spesifik yang sudah kita buat
+        parents: [folderId],
       },
       media: {
         mimeType: 'image/jpeg',
-        body: Readable.from(buffer), // Mengubah buffer menjadi readable stream agar bisa di-upload
+        body: Readable.from(buffer),
       },
       fields: 'id, webViewLink',
     });
@@ -62,7 +60,7 @@ export async function POST(request: Request) {
       throw new Error('Gagal mendapatkan respon ID atau Link dari Google Drive.');
     }
 
-    // Mengatur hak akses file agar Owner (kamu) bisa membukanya langsung via link tanpa tertahan permission
+    // Mengatur hak akses file agar bisa dibuka via link
     await drive.permissions.create({
       fileId: fileId,
       requestBody: {
@@ -75,8 +73,6 @@ export async function POST(request: Request) {
     // PROSES 2: TULIS FORMULA LINK KE GOOGLE SHEETS
     // ==========================================
     const sheets = google.sheets({ version: 'v4', auth });
-
-    // Menggunakan formula HYPERLINK bawaan Google Sheets agar sel rapi bertuliskan "Lihat Foto"
     const formulaHyperlink = `=HYPERLINK("${viewLink}"; "Lihat Foto")`;
 
     const barisBaru = [tanggalSekarang, waktuSekarang, nama, shift, status, formulaHyperlink];
@@ -84,7 +80,7 @@ export async function POST(request: Request) {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Absen!A:F', 
-      valueInputOption: 'USER_ENTERED', // Wajib USER_ENTERED agar Google Sheets mengeksekusi rumusan =HYPERLINK() kita
+      valueInputOption: 'USER_ENTERED', 
       requestBody: {
         values: [barisBaru],
       },
