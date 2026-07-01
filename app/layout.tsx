@@ -1,12 +1,11 @@
 import './globals.css';
-// 1. Import font Plus Jakarta Sans dari modul bawaan Next.js
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import React from 'react'; // Diperlukan untuk mengambil tipe data ReactNode
 
-// 2. Konfigurasi Font
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-jakarta', // Variabel ini agar bisa dibaca oleh Tailwind
+  variable: '--font-jakarta', 
 });
 
 export const metadata = {
@@ -14,10 +13,14 @@ export const metadata = {
   description: 'Sistem Manajemen Logistik dan Kasir Kedai Kopi Bara',
 };
 
-export default function RootLayout({ children }) {
+// FIX: Menambahkan anotasi tipe data untuk objek props dan children ({ children }: { children: React.ReactNode })
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="id">
-      {/* 3. Masukkan class font ke dalam tag <body> */}
       <body className={`${jakarta.className} ${jakarta.variable} bg-zinc-50 text-zinc-900 antialiased`}>
         {children}
       </body>
