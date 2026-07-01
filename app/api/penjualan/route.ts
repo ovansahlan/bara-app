@@ -32,8 +32,7 @@ export async function GET(request: Request) {
     });
 
     const rows = response.data.values || [];
-    let totalOmsetPagi = 0;
-
+    
     // Objek penampung rincian akumulasi shift pagi
     const rincianPagi = {
       tunai: 0,
@@ -73,7 +72,6 @@ export async function POST(request: Request) {
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-    // FIX: Tambahkan pengecekan null di sini agar TypeScript compiler tidak protes
     if (!spreadsheetId || !clientEmail || !privateKey) {
       return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
     }
@@ -87,7 +85,7 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Format Kolom Sesuai Permintaan: 
+    // Format Kolom: 
     // A:Tanggal | B:Nama Kasir | C:Shift | D:Tunai | E:Qris | F:EDC/Transfer | G:Grab/Online | H:Total Penjualan
     const barisBaru = [tanggal, namaKasir, shift, tunai, qris, edcTransfer, grabOnline, totalPenjualan];
 
@@ -95,6 +93,7 @@ export async function POST(request: Request) {
       spreadsheetId,
       range: 'Penjualan!A:H',
       valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS', // <--- INI OBATNYA: Memaksa Google Sheets bikin baris baru ke bawah
       requestBody: { values: [barisBaru] },
     });
 
