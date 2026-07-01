@@ -2,15 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-// Import ikon minimalis dari lucide-react
 import { 
   Camera, Receipt, ShoppingBag, Package, 
   CreditCard, ShieldCheck, AlertCircle, LayoutDashboard,
   Clock, ArrowRight, User
 } from 'lucide-react';
 
+interface StokAlert {
+  id: string;
+  nama: string;
+  sisa: number;
+  satuan: string;
+}
+
 export default function DashboardSaaS() {
-  const [waktu, setWaktu] = useState('');
+  const [waktu, setWaktu] = useState<string>('');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -24,13 +30,14 @@ export default function DashboardSaaS() {
   }, []);
 
   const stats = { uangLaci: 850000, pettyCash: 125000, omsetTotal: 2450000, kasbonBerjalan: 450000, belanjaOwner: 1500000 };
-  const stokMenipis = [
+  
+  const stokMenipis: StokAlert[] = [
     { id: "B003", nama: "Susu SKM", sisa: 2, satuan: "Pouch" },
     { id: "B004", nama: "Creamer", sisa: 1, satuan: "Kg" },
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-28 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-28 font-sans">
       
       {/* SaaS Premium Header */}
       <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
@@ -59,7 +66,7 @@ export default function DashboardSaaS() {
           </span>
         </div>
 
-        {/* Total Omset Broad Card */}
+        {/* Total Omset Card */}
         <div className="bg-zinc-900 text-white p-6 rounded-2xl shadow-md border border-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Receipt size={80} />
@@ -76,44 +83,58 @@ export default function DashboardSaaS() {
           </div>
         </div>
 
-        {/* Quick Menu Hub */}
+        {/* SaaS Core Grid Metrics */}
+        <section className="grid grid-cols-2 gap-4">
+          <div className="bg-white border border-zinc-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+            <span className="text-xs font-semibold text-zinc-500">Cash di Laci</span>
+            <h3 className="text-xl font-bold text-zinc-900 mt-2 tracking-tight">
+              Rp {stats.uangLaci.toLocaleString('id-ID')}
+            </h3>
+          </div>
+          <div className="bg-white border border-zinc-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+            <span className="text-xs font-semibold text-zinc-500">Petty Cash Keluar</span>
+            <h3 className="text-xl font-bold text-zinc-900 mt-2 tracking-tight">
+              Rp {stats.pettyCash.toLocaleString('id-ID')}
+            </h3>
+          </div>
+        </section>
+
+        {/* Actions Button Hub */}
         <section>
           <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Menu Utama</h2>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/absen" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
               <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <Camera size={18} strokeWidth={2} />
+                <Camera size={18} />
               </div>
               <span className="text-xs font-semibold text-zinc-700">Presensi</span>
             </Link>
             <Link href="/penjualan" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
               <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <Receipt size={18} strokeWidth={2} />
+                <Receipt size={18} />
               </div>
               <span className="text-xs font-semibold text-zinc-700">Omset</span>
             </Link>
             <Link href="/pengeluaran" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
               <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <ShoppingBag size={18} strokeWidth={2} />
+                <ShoppingBag size={18} />
               </div>
               <span className="text-xs font-semibold text-zinc-700">Belanja</span>
             </Link>
             <Link href="/stok" className="p-4 bg-white border border-zinc-200 rounded-xl shadow-sm flex items-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
               <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                <Package size={18} strokeWidth={2} />
+                <Package size={18} />
               </div>
               <span className="text-xs font-semibold text-zinc-700">Logistik</span>
             </Link>
           </div>
         </section>
 
-        {/* Secondary Actions (List) */}
+        {/* Secondary Menu Rows */}
         <section className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
           <Link href="/kasbon" className="flex items-center justify-between p-4 border-b border-zinc-100 hover:bg-zinc-50 transition-colors group">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-zinc-100 rounded-lg text-zinc-600">
-                <CreditCard size={18} strokeWidth={2} />
-              </div>
+              <div className="p-2 bg-zinc-100 rounded-lg text-zinc-600"><CreditCard size={18} /></div>
               <div>
                 <p className="text-xs font-bold text-zinc-800">Kasbon Karyawan</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">Total berjalan: Rp {stats.kasbonBerjalan.toLocaleString('id-ID')}</p>
@@ -121,12 +142,9 @@ export default function DashboardSaaS() {
             </div>
             <ArrowRight size={16} className="text-zinc-300 group-hover:text-zinc-600 transition-colors" />
           </Link>
-          
           <Link href="/owner/belanja" className="flex items-center justify-between p-4 hover:bg-zinc-50 transition-colors group">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                <ShieldCheck size={18} strokeWidth={2} />
-              </div>
+              <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600"><ShieldCheck size={18} /></div>
               <div>
                 <p className="text-xs font-bold text-zinc-800">Akses Owner</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">Input investasi & operasional besar</p>
@@ -136,23 +154,19 @@ export default function DashboardSaaS() {
           </Link>
         </section>
 
-        {/* Critical Alerts */}
+        {/* Inventory Alerts Box */}
         <section>
           <div className="bg-white border border-rose-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-            {/* Aksen garis merah di sebelah kiri kartu */}
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
-            
             <div className="flex items-center gap-2 text-rose-700 font-bold text-xs mb-3">
-              <AlertCircle size={16} strokeWidth={2.5} />
+              <AlertCircle size={16} />
               Stok Menipis
             </div>
             <div className="space-y-2">
-              {stokMenipis.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center bg-zinc-50 border border-zinc-100 px-3 py-2 rounded-lg text-xs">
+              {stokMenipis.map((item) => (
+                <div key={item.id} className="flex justify-between items-center bg-zinc-50 border border-zinc-100 px-3 py-2 rounded-lg text-xs">
                   <span className="font-semibold text-zinc-700">{item.nama}</span>
-                  <span className="text-rose-600 font-bold">
-                    {item.sisa} {item.satuan}
-                  </span>
+                  <span className="text-rose-600 font-bold">Sisa {item.sisa} {item.satuan}</span>
                 </div>
               ))}
             </div>
@@ -161,27 +175,27 @@ export default function DashboardSaaS() {
 
       </div>
 
-      {/* SaaS Bottom Navigation Bar */}
+      {/* SaaS Bottom Sticky Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 z-50">
         <div className="max-w-md mx-auto flex justify-between items-center px-6 py-3">
           <Link href="/" className="flex flex-col items-center text-indigo-600 gap-1">
-            <LayoutDashboard size={20} strokeWidth={2.5} />
+            <LayoutDashboard size={20} />
             <span className="text-[9px] font-bold">Home</span>
           </Link>
           <Link href="/penjualan" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Receipt size={20} strokeWidth={2} />
+            <Receipt size={20} />
             <span className="text-[9px] font-medium">Kasir</span>
           </Link>
           <Link href="/absen" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Camera size={20} strokeWidth={2} />
+            <Camera size={20} />
             <span className="text-[9px] font-medium">Absen</span>
           </Link>
           <Link href="/stok" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <Package size={20} strokeWidth={2} />
+            <Package size={20} />
             <span className="text-[9px] font-medium">Stok</span>
           </Link>
           <Link href="/pengeluaran" className="flex flex-col items-center text-zinc-400 hover:text-zinc-700 transition-colors gap-1">
-            <ShoppingBag size={20} strokeWidth={2} />
+            <ShoppingBag size={20} />
             <span className="text-[9px] font-medium">Belanja</span>
           </Link>
         </div>
