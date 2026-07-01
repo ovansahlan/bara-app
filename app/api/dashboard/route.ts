@@ -4,10 +4,8 @@ import { google } from 'googleapis';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    // Jika tidak ada tanggal yang dikirim, gunakan tanggal hari ini (YYYY-MM-DD)
     const tanggalFilter = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
-    // Buat format alternatif Indonesia (DD/MM/YYYY) untuk pencocokan database spreadsheet
     const [year, month, day] = tanggalFilter.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
@@ -28,64 +26,64 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Tarik 4 data tab sekaligus secara paralel
-    const [resPenjualan, resPengeluaran, resKasbon, resAbsen] = await Promise.all([
+    // Tarik 6 Data Tab Sekaligus
+    const [resPenjualan, resPengeluaran, resKasbon, resAbsen, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }), // Kolom E adalah Nilai
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:C' }),      // Kolom C adalah Nominal Kasbon
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Absen!A:F' })
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:C' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Absen!A:F' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:G' })
     ]);
 
-    let omsetHariIni = 0;
-    let pengeluaranHariIni = 0;
-    let kasbonHariIni = 0;
-    let absenHariIni = 0;
-
-    // 1. Hitung Omset Hari Ini (Kolom H / Index 7)
+    // 1. RINCIAN OMSET
+    const omset = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     (resPenjualan.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0];
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        omsetHariIni += parseInt(row[7] || '0', 10);
+      if (row[0] === tanggalFilter || row[0] === formatTanggalID) {
+        omset.tunai += parseInt(row[3] || '0', 10);
+        omset.qris += parseInt(row[4] || '0', 10);
+        omset.edc += parseInt(row[5] || '0', 10);
+        omset.grab += parseInt(row[6] || '0', 10);
+        omset.total += parseInt(row[7] || '0', 10);
       }
     });
 
-    // 2. Hitung Pengeluaran Hari Ini (Kolom E / Index 4 sesuai berkas asli)
+    // 2. TOTAL PENGELUARAN & KASBON
+    let totalKeluar = 0;
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0];
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        // Membersihkan karakter non-angka jika kasir tidak sengaja mengetik simbol Rp atau titik
-        const nominalStr = (row[7] || '0').toString().replace(/\D/g, '');
-        pengeluaranHariIni += parseInt(nominalStr || '0', 10);
+      if (row[0] === tanggalFilter || row[0] === formatTanggalID) {
+        totalKeluar += parseInt((row[7] || '0').toString().replace(/\D/g, ''), 10);
       }
     });
 
-    // 3. Hitung Kasbon Hari Ini (Kolom C / Index 2 sesuai berkas asli)
+    let totalKasbon = 0;
     (resKasbon.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0];
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        const nominalStr = (row[2] || '0').toString().replace(/\D/g, '');
-        kasbonHariIni += parseInt(nominalStr || '0', 10);
+      if (row[0] === tanggalFilter || row[0] === formatTanggalID) {
+        totalKasbon += parseInt((row[2] || '0').toString().replace(/\D/g, ''), 10);
       }
     });
 
-    // 4. Hitung Absensi Hari Ini
+    // 3. LOG ABSENSI
+    let totalHadir = 0;
     (resAbsen.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0];
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        absenHariIni += 1;
-      }
+      if (row[0] === tanggalFilter || row[0] === formatTanggalID) totalHadir += 1;
     });
 
-    return NextResponse.json({ 
-      tanggal: tanggalFilter,
-      omsetHariIni, 
-      pengeluaranHariIni, 
-      kasbonHariIni, 
-      absenHariIni 
+    // 4. HISTORI STOK (5 Terakhir)
+    const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
+    const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
+
+    return NextResponse.json({
+      omset,
+      totalKeluar,
+      totalKasbon,
+      totalHadir,
+      historyStokIn,
+      historyStokOut
     });
 
   } catch (error: any) {
     console.error('API Dashboard Error:', error);
-    return NextResponse.json({ error: 'Gagal menarik data ringkasan dashboard.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat data.' }, { status: 500 });
   }
 }
