@@ -142,7 +142,6 @@ export default function LogistikSaaSTypeScript() {
               </div>
             </button>
 
-            {/* AKASES BARU: TOMBOL NAVIGASI MENUJU HALAMAN ASET & RIWAYAT STOK */}
             <Link href="/stok/riwayat" className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98 block">
               <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100"><History size={20} /></div>
               <div>
@@ -188,6 +187,7 @@ export default function LogistikSaaSTypeScript() {
                 </select>
               </div>
 
+              {/* INPUT SPESIFIK BERDASARKAN MODE OPERASIONAL */}
               {activeMode === 'IN' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -217,7 +217,8 @@ export default function LogistikSaaSTypeScript() {
               {activeMode === 'OPNAME' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Fisik Riil Dihitung" value={itemOpname.physic} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
+                    {/* FIX UTAMA: Mengubah itemOpname.physic menjadi itemOpname.fisik */}
+                    <input type="number" placeholder="Fisik Riil Dihitung" value={itemOpname.fisik} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
                     <input type="text" placeholder="Keterangan Kondisi..." value={itemOpname.ket} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, ket: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
                   </div>
                 </div>
