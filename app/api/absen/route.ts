@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       key: formattedKey,
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive' // FIX: Diubah ke scope utama agar bisa menulis ke folder yang di-share
+        'https://www.googleapis.com/auth/drive'
       ],
     });
 
@@ -90,8 +90,10 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('SaaS Integration Error:', error);
+    // FIX DEBUG: Memasukkan pesan error asli (error.message) langsung ke teks respons agar muncul di alert HP
+    const pesanErrorAsli = error.message || error.toString();
     return NextResponse.json(
-      { error: 'Gagal memproses unggahan media.', details: error.message },
+      { error: `Gagal memproses unggahan media. Alasan: ${pesanErrorAsli}` },
       { status: 500 }
     );
   }
