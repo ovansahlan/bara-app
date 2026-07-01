@@ -8,11 +8,9 @@ export default function AbsensiSaaS() {
   const [waktu, setWaktu] = useState<string>('');
   const [formData, setFormData] = useState({ nama: '', shift: '', status: 'Masuk' });
   
-  // Proteksi tipe data untuk API Media Kamera di TypeScript
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [fotoBase64, setFotoBase64] = useState<string | null>(null);
   
-  // Proteksi tipe data untuk Referensi Elemen HTML DOM
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -32,13 +30,19 @@ export default function AbsensiSaaS() {
     return () => clearInterval(timer);
   }, []);
 
+  // FIX UTAMA: Efek ini memantau kapan elemen <video> siap di DOM untuk menerima stream kamera
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]); // Akan berjalan otomatis begitu 'stream' berubah dari null menjadi berisi data
+
   const bukaKamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
+      setStream(mediaStream); // Cukup set stream ke state, penempelan ke video diurus oleh useEffect di atas
     } catch (err) {
       alert("Akses kamera ditolak atau tidak tersedia pada perangkat ini.");
     }
@@ -47,8 +51,6 @@ export default function AbsensiSaaS() {
   const jepretFoto = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
-      
-      // Proteksi wajib TypeScript: Memastikan object 2D Canvas Context tidak null
       if (!context) return;
 
       canvasRef.current.width = videoRef.current.videoWidth;
@@ -159,7 +161,8 @@ export default function AbsensiSaaS() {
             <div className="bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden min-h-[260px] transition-all hover:border-indigo-400">
               {stream && !fotoBase64 && (
                 <>
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover rounded-lg shadow-inner" />
+                  {/* FIX: Ditambahkan atribut 'muted' agar lolos regulasi auto-play browser mobile (iOS Safari) */}
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-lg shadow-inner" />
                   <button 
                     type="button" 
                     onClick={jepretFoto} 
@@ -195,7 +198,6 @@ export default function AbsensiSaaS() {
             </div>
           </div>
 
-          {/* Tombol Eksekusi Submit Akhir */}
           <button 
             type="submit" 
             disabled={isSubmitting} 
