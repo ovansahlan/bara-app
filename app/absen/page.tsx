@@ -67,7 +67,7 @@ export default function AbsensiSaaS() {
     }
   };
 
-  // FIX HUBUNGAN API: Sekarang menembak langsung ke API Route Next.js Backend
+  // FIX HUBUNGAN API: Sekarang menembak langsung ke API Route Next.js Backend test
   const handleAbsen = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.nama || !formData.shift || !fotoBase64) {
