@@ -1,203 +1,120 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { 
+  CreditCard, User, Calendar, ChevronLeft, 
+  CheckCircle2, Banknote, FileText, AlertCircle 
+} from 'lucide-react';
 
-export default function KasbonBara() {
+export default function KasbonSaaS() {
   const [formData, setFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     namaKru: '',
     nominal: '',
-    keterangan: '',
+    keterangan: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Daftar Kru (Sesuai database Anda)
-  const daftarKru = [
-    'Chika',
-    'Ibnu',
-    'Novi',
-    'Diska',
-    'Nugye',
-    'Ruslan',
-    'A Novan',
-  ];
+  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
+  const saranKeterangan = ["Kebutuhan rumah", "Kebutuhan anak (Susu/Pempers)", "Bayar cicilan / tagihan", "Berobat / Sakit", "Transportasi / Bensin"];
 
-  // Saran alasan kasbon yang sering dipakai
-  const saranKeterangan = [
-    'Kebutuhan rumah',
-    'Kebutuhan anak (Susu/Pempers)',
-    'Bayar cicilan / tagihan',
-    'Berobat / Sakit',
-    'Transportasi / Bensin',
-  ];
+  const handleNominalChange = (e) => {
+    const angkaSaja = e.target.value.replace(/\D/g, '');
+    const formatTitik = angkaSaja === '' ? '' : parseInt(angkaSaja, 10).toLocaleString('id-ID');
+    setFormData({ ...formData, nominal: formatTitik });
+  };
 
   const handleAjukan = (e) => {
     e.preventDefault();
-    if (!formData.namaKru || !formData.nominal || !formData.keterangan) {
-      alert('Harap lengkapi Nama, Nominal, dan Keterangan!');
-      return;
-    }
-
-    // Validasi konfirmasi (karena ini menyangkut potong gaji)
-    const konfirmasi = window.confirm(
-      `Konfirmasi Pengajuan Kasbon:\n\nNama: ${
-        formData.namaKru
-      }\nNominal: Rp ${parseInt(formData.nominal).toLocaleString(
-        'id-ID'
-      )}\nAlasan: ${
-        formData.keterangan
-      }\n\nApakah data ini sudah benar dan disetujui?`
-    );
-
+    if (!formData.namaKru || !formData.nominal || !formData.keterangan) return alert("Lengkapi semua data!");
+    
+    const nominalAsli = parseInt(formData.nominal.replace(/\./g, ''), 10);
+    const konfirmasi = window.confirm(`Konfirmasi Pengajuan Kasbon:\n\nNama: ${formData.namaKru}\nNominal: Rp ${nominalAsli.toLocaleString('id-ID')}\nAlasan: ${formData.keterangan}\n\nLanjutkan pemotongan gaji?`);
     if (!konfirmasi) return;
 
     setIsSubmitting(true);
-
-    // SIMULASI PENGIRIMAN DATA KE DATABASE KASBON
     setTimeout(() => {
-      alert(
-        `✅ Pengajuan Kasbon Berhasil Dicatat!\n\nData akan masuk ke: DB_Kasbon.csv\n*Catatan: Nominal ini akan otomatis memotong gaji bulan bersangkutan.`
-      );
-
+      alert("✅ Pengajuan Kasbon Berhasil Dicatat ke DB_Kasbon.csv");
       setIsSubmitting(false);
-      // Reset form setelah sukses
-      setFormData({
-        tanggal: new Date().toISOString().split('T')[0],
-        namaKru: '',
-        nominal: '',
-        keterangan: '',
-      });
+      setFormData({ tanggal: new Date().toISOString().split('T')[0], namaKru: '', nominal: '', keterangan: '' });
     }, 1500);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center pb-10 items-center px-4">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-3xl overflow-hidden border border-gray-200 mt-6">
-        {/* Header Tema Oranye */}
-        <div className="bg-orange-600 text-white p-6 shadow-md text-center">
-          <div className="flex justify-center mb-2">
-            <span className="bg-orange-800 text-orange-100 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-              💳 Potong Gaji
-            </span>
-          </div>
-          <h1 className="text-xl font-black tracking-wider">KEDAI KOPI BARA</h1>
-          <p className="text-sm mt-1 text-orange-200">
-            Form Pengajuan Kasbon Kru
-          </p>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
+      
+      {/* Header SaaS Modal */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors">
+            <ChevronLeft size={20} />
+          </Link>
+          <h1 className="text-sm font-bold tracking-wide flex items-center gap-2 text-zinc-800">
+            <CreditCard size={16} className="text-amber-600" /> Pengajuan Kasbon
+          </h1>
+          <div className="w-9 h-9"></div>
         </div>
+      </div>
 
-        <div className="p-6 bg-orange-50/30">
-          <form onSubmit={handleAjukan} className="space-y-5">
-            {/* Tanggal & Nama Kru */}
+      <div className="max-w-md mx-auto px-4 mt-6">
+        <form onSubmit={handleAjukan} className="space-y-5">
+          
+          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
-                  Tanggal
-                </label>
-                <input
-                  type="date"
-                  value={formData.tanggal}
-                  onChange={(e) =>
-                    setFormData({ ...formData, tanggal: e.target.value })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-xl bg-white text-gray-800 font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  required
-                />
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Tanggal</label>
+                <div className="relative">
+                  <Calendar size={14} className="absolute left-3 top-3 text-zinc-400" />
+                  <input type="date" value={formData.tanggal} onChange={(e) => setFormData({...formData, tanggal: e.target.value})} className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none" required />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
-                  Nama Kru
-                </label>
-                <select
-                  value={formData.namaKru}
-                  onChange={(e) =>
-                    setFormData({ ...formData, namaKru: e.target.value })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-xl bg-white text-gray-800 font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  required
-                >
-                  <option value="">-- Pilih --</option>
-                  {daftarKru.map((kru, idx) => (
-                    <option key={idx} value={kru}>
-                      {kru}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Nama Kru</label>
+                <div className="relative">
+                  <User size={14} className="absolute left-3 top-3 text-zinc-400" />
+                  <select value={formData.namaKru} onChange={(e) => setFormData({...formData, namaKru: e.target.value})} className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none appearance-none" required>
+                    <option value="">Pilih...</option>
+                    {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Nominal Kasbon */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
-                Nominal Pinjaman (Rp)
-              </label>
-              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl p-1 shadow-sm focus-within:ring-2 focus-within:ring-orange-500">
-                <span className="bg-orange-100 text-orange-800 font-bold px-4 py-3 rounded-lg text-sm">
-                  Rp
-                </span>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={formData.nominal}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nominal: e.target.value })
-                  }
-                  className="w-full p-2 text-gray-900 font-black text-xl outline-none bg-transparent"
-                  required
-                />
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Alasan / Keterangan</label>
+              <div className="relative">
+                <FileText size={14} className="absolute left-3 top-3.5 text-zinc-400" />
+                <input type="text" list="saran-alasan" placeholder="Cth: Kebutuhan anak..." value={formData.keterangan} onChange={(e) => setFormData({...formData, keterangan: e.target.value})} className="w-full pl-9 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none" required />
+                <datalist id="saran-alasan">{saranKeterangan.map(i => <option key={i} value={i} />)}</datalist>
               </div>
             </div>
 
-            {/* Keterangan / Alasan */}
-            <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
-                Keterangan / Alasan
-              </label>
-              <input
-                type="text"
-                list="saran-alasan"
-                placeholder="Contoh: Kebutuhan rumah..."
-                value={formData.keterangan}
-                onChange={(e) =>
-                  setFormData({ ...formData, keterangan: e.target.value })
-                }
-                className="w-full p-3 border border-gray-300 rounded-xl bg-white text-gray-800 outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
-                required
-              />
-              <datalist id="saran-alasan">
-                {saranKeterangan.map((item, idx) => (
-                  <option key={idx} value={item} />
-                ))}
-              </datalist>
+            {/* Input Nominal Cerdas */}
+            <div className="pt-2">
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Nominal Pinjaman</label>
+              <div className="flex bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-amber-500 shadow-sm transition-all">
+                <div className="bg-zinc-100 border-r border-zinc-300 px-4 py-3 flex items-center text-zinc-500"><Banknote size={18} /></div>
+                <div className="flex items-center pl-3"><span className="text-zinc-500 font-semibold text-lg">Rp</span></div>
+                <input type="text" inputMode="numeric" placeholder="0" value={formData.nominal} onChange={handleNominalChange} className="w-full p-3 text-zinc-900 font-black text-xl outline-none bg-transparent" required />
+              </div>
             </div>
+          </div>
 
-            {/* Peringatan Potong Gaji */}
-            <div className="bg-red-50 border border-red-200 p-3 rounded-xl flex gap-3 items-start mt-2">
-              <span className="text-red-500 text-xl">⚠️</span>
-              <p className="text-xs text-red-800 font-medium leading-relaxed">
-                Pengajuan kasbon ini akan dicatat ke dalam sistem dan akan{' '}
-                <strong className="font-bold">
-                  otomatis memotong total gaji
-                </strong>{' '}
-                pada bulan ini.
-              </p>
-            </div>
+          {/* Alert Box SaaS Style */}
+          <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-xl flex gap-3 items-start">
+            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed font-medium">
+              Pengajuan ini akan dicatat ke sistem dan <strong className="font-bold text-amber-900">otomatis memotong gaji</strong> Anda pada periode penggajian bulan ini.
+            </p>
+          </div>
 
-            {/* Tombol Submit */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full mt-2 py-4 rounded-xl text-lg font-bold text-white shadow-lg transition-all ${
-                isSubmitting
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-orange-600 hover:bg-orange-700 active:scale-95'
-              }`}
-            >
-              {isSubmitting ? '🔄 Memproses...' : '📝 AJUKAN KASBON'}
-            </button>
-          </form>
-        </div>
+          <button type="submit" disabled={isSubmitting} className={`w-full py-4 rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all ${isSubmitting ? 'bg-zinc-400 text-white cursor-not-allowed' : 'bg-amber-600 text-white hover:bg-amber-700 active:scale-95'}`}>
+            {isSubmitting ? <CheckCircle2 size={18} className="animate-pulse" /> : <CreditCard size={18} />}
+            {isSubmitting ? 'MEMPROSES...' : 'AJUKAN KASBON'}
+          </button>
+        </form>
       </div>
     </div>
   );

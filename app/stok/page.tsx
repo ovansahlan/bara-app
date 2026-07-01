@@ -1,509 +1,213 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Package, ChevronLeft, Plus, Trash2, CheckCircle2, ArrowDownLeft, ArrowUpRight, ClipboardCheck } from 'lucide-react';
 
-export default function ManajemenStokBara() {
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu', 'in', 'out', 'opname'
-  const [searchQuery, setSearchQuery] = useState('');
+export default function LogistikSaaSMulti() {
+  const [activeMode, setActiveMode] = useState('menu'); // 'menu', 'IN', 'OUT', 'OPNAME'
+  const [kru, setKru] = useState('');
+  const [cartStok, setCartStok] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Data Master Produk (Sesuai dengan Master Product.csv & CurrentStock.csv Anda)
-  const [listProduk, setListProduk] = useState([
-    { id: 'B001', nama: 'Susu Evaporasi', satuan: 'Kaleng', stokSistem: 54 },
-    { id: 'B002', nama: 'Susu UHT', satuan: 'Liter', stokSistem: 84 },
-    { id: 'B003', nama: 'Susu SKM', satuan: 'Pouch', stokSistem: 6 },
-    { id: 'B004', nama: 'Creamer', satuan: 'Kg', stokSistem: 4 },
-    { id: 'B005', nama: 'Vanilla Powder', satuan: 'Kg', stokSistem: 7 },
-    { id: 'B009', nama: 'Butterscotch Syrup', satuan: 'Liter', stokSistem: 5 },
-    { id: 'B012', nama: 'Minyak Goreng', satuan: 'Pouch', stokSistem: 12 },
-    { id: 'B013', nama: 'Cup Ice 12oz', satuan: 'Pcs', stokSistem: 1000 },
-  ]);
+  // Form Temp State
+  const [itemIn, setItemIn] = useState({ id: 'B001', qty: '', harga: '' });
+  const [itemOut, setItemOut] = useState({ id: 'B001', qty: '', tujuan: 'Kedai Utama', ket: '' });
+  const [itemOpname, setItemOpname] = useState({ id: 'B001', fisik: '', ket: '' });
 
-  const daftarKru = [
-    'Chika',
-    'Ibnu',
-    'Novi',
-    'Diska',
-    'Nugye',
-    'Ruslan',
-    'A Novan',
+  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
+  const listMasterProduk = [
+    { id: "B001", nama: "Susu Evaporasi", satuan: "Kaleng", sistem: 54 },
+    { id: "B002", nama: "Susu UHT", satuan: "Liter", sistem: 84 },
+    { id: "B003", nama: "Susu SKM", satuan: "Pouch", sistem: 6 },
+    { id: "B004", nama: "Creamer", satuan: "Kg", sistem: 4 },
   ];
 
-  // State Form Stock-In
-  const [formIn, setFormIn] = useState({
-    tanggal: new Date().toISOString().split('T')[0],
-    idProduk: '',
-    kuantiti: '',
-    hargaSatuan: '',
-    penginput: '',
-  });
-  // State Form Stock-Out
-  const [formOut, setFormOut] = useState({
-    tanggal: new Date().toISOString().split('T')[0],
-    idProduk: '',
-    kuantiti: '',
-    keterangan: '',
-    lokasi: 'Kedai Utama',
-    penginput: '',
-  });
-  // State Form Opname (Menampung input fisik per ID Produk)
-  const [formOpname, setFormOpname] = useState({});
+  const currentProdukIn = listMasterProduk.find(p => p.id === itemIn.id);
+  const totalHargaInTemp = (parseInt(itemIn.qty) || 0) * (parseInt((itemIn.harga || '').replace(/\./g, '')) || 0);
 
-  // Hitung otomatis total belanja di Stock-In
-  const totalBelanjaIn = (formIn.kuantiti || 0) * (formIn.hargaSatuan || 0);
-
-  // Filter produk berdasarkan kolom pencarian
-  const filteredProduk = listProduk.filter(
-    (p) =>
-      p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSubmitIn = (e) => {
+  const handleTambahCart = (e) => {
     e.preventDefault();
-    alert(
-      `✅ Data Stock-In Berhasil!\nProduk: ${
-        formIn.idProduk
-      }\nTotal Belanja: Rp ${totalBelanjaIn.toLocaleString(
-        'id-ID'
-      )}\nData siap masuk ke Stock-In.csv`
-    );
-    setActiveTab('menu');
-  };
+    if (!kru) return alert("Pilih Petugas Gudang!");
 
-  const handleSubmitOut = (e) => {
-    e.preventDefault();
-    alert(
-      `✅ Data Stock-Out Berhasil!\nProduk: ${formOut.idProduk}\nTujuan: ${formOut.lokasi}\nData siap masuk ke Stock-Out.csv`
-    );
-    setActiveTab('menu');
-  };
-
-  const handleSubmitOpname = () => {
-    alert(
-      `✅ Hasil Opname Berhasil Disimpan!\nSelisih akan otomatis dihitung dan dimasukkan ke Opname.csv`
-    );
-    setActiveTab('menu');
+    if (activeMode === 'IN') {
+      if (!itemIn.qty || !itemIn.harga) return alert("Lengkapi data barang masuk!");
+      const p = listMasterProduk.find(pr => pr.id === itemIn.id);
+      setCartStok([...cartStok, {
+        id: itemIn.id, nama: p.nama, tipe: 'IN',
+        qty: parseInt(itemIn.qty), satuan: p.satuan,
+        infoExtra: `Rp ${itemIn.harga}/satuan`, totalNilai: totalHargaInTemp
+      }]);
+      setItemIn({ id: 'B001', qty: '', harga: '' });
+    } 
+    else if (activeMode === 'OUT') {
+      if (!itemOut.qty) return alert("Masukkan kuantiti keluar!");
+      const p = listMasterProduk.find(pr => pr.id === itemOut.id);
+      setCartStok([...cartStok, {
+        id: itemOut.id, nama: p.nama, tipe: 'OUT',
+        qty: parseInt(itemOut.qty), satuan: p.satuan,
+        infoExtra: `Tujuan: ${itemOut.tujuan} ${itemOut.ket ? `(${itemOut.ket})` : ''}`, totalNilai: 0
+      }]);
+      setItemOut({ id: 'B001', qty: '', tujuan: 'Kedai Utama', ket: '' });
+    }
+    else if (activeMode === 'OPNAME') {
+      if (!itemOpname.fisik) return alert("Masukkan jumlah fisik asli kulkas/gudang!");
+      const p = listMasterProduk.find(pr => pr.id === itemOpname.id);
+      const selisih = parseInt(itemOpname.fisik) - p.sistem;
+      setCartStok([...cartStok, {
+        id: itemOpname.id, nama: p.nama, tipe: 'OPNAME',
+        qty: parseInt(itemOpname.fisik), satuan: p.satuan,
+        infoExtra: `Sistem: ${p.sistem} | Selisih: ${selisih > 0 ? `+${selisih}` : selisih}`, totalNilai: 0
+      }]);
+      setItemOpname({ id: 'B001', fisik: '', ket: '' });
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center pb-10">
-      <div className="w-full max-w-md bg-white shadow-lg min-h-screen flex flex-col">
-        {/* Header Aplikasi */}
-        <div className="bg-amber-900 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            {activeTab !== 'menu' && (
-              <button
-                onClick={() => setActiveTab('menu')}
-                className="text-amber-200 hover:text-white font-semibold text-sm flex items-center gap-1"
-              >
-                ⬅️ Kembali
-              </button>
-            )}
-            <h1 className="text-xl font-bold tracking-wide text-center flex-1">
-              {activeTab === 'menu' && 'LOGISTIK BARA'}
-              {activeTab === 'in' && '📥 BARANG MASUK'}
-              {activeTab === 'out' && '📤 BARANG KELUAR'}
-              {activeTab === 'opname' && '📋 STOK OPNAME'}
-            </h1>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24 font-sans">
+      {/* Dynamic Header */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+          <button onClick={() => activeMode === 'menu' ? window.location.href = '/' : (setActiveMode('menu'), setCartStok([]))} className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200"><ChevronLeft size={20} /></button>
+          <h1 className="text-sm font-bold tracking-wide uppercase">
+            {activeMode === 'menu' ? 'Logistik Hub' : `Batch Stack: ${activeMode}`}
+          </h1>
+          <div className="w-9 h-9"></div>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
+        
+        {/* OPERATIONAL HUB SELECTOR */}
+        {activeMode === 'menu' && (
+          <div className="space-y-3 pt-6">
+            <button onClick={() => setActiveMode('IN')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-2xs flex items-center gap-4 hover:border-zinc-400 text-left transition-all group">
+              <div className="p-3 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl"><ArrowDownLeft size={20} /></div>
+              <div><h3 className="text-sm font-bold text-zinc-800">Stock-In (Barang Masuk / Belanja)</h3><p className="text-[10px] text-zinc-400 mt-0.5">Catat restock susu, cup kemasan, sirup bulanan</p></div>
+            </button>
+            <button onClick={() => setActiveMode('OUT')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-2xs flex items-center gap-4 hover:border-zinc-400 text-left transition-all group">
+              <div className="p-3 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl"><ArrowUpRight size={20} /></div>
+              <div><h3 className="text-sm font-bold text-zinc-800">Stock-Out (Mutasi / Pemakaian Bar)</h3><p className="text-[10px] text-zinc-400 mt-0.5">Catat bahan keluar untuk operasional atau oper gerobak</p></div>
+            </button>
+            <button onClick={() => setActiveMode('OPNAME')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-2xs flex items-center gap-4 hover:border-zinc-400 text-left transition-all group">
+              <div className="p-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl"><ClipboardCheck size={20} /></div>
+              <div><h3 className="text-sm font-bold text-zinc-800">Stock Opname Fisik Berkala</h3><p className="text-[10px] text-zinc-400 mt-0.5">Audit stock fisik asli gudang untuk hitung selisih</p></div>
+            </button>
           </div>
-          <p className="text-center text-xs text-amber-200 mt-1">
-            Kedai Kopi Bara & Gerobak
-          </p>
-        </div>
+        )}
 
-        {/* ISI KONTEN BERDASARKAN TAB YANG AKTIF */}
-        <div className="p-5 flex-1 flex flex-col">
-          {/* ================= LAYAR UTAMA (MENU SELECTION) ================= */}
-          {activeTab === 'menu' && (
-            <div className="space-y-4 my-auto">
-              <p className="text-gray-600 text-center font-medium mb-6">
-                Pilih aktivitas logistik harian:
-              </p>
-
-              <button
-                onClick={() => setActiveTab('in')}
-                className="w-full p-5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl flex items-center gap-4 text-left transition-all shadow-sm group"
-              >
-                <span className="text-3xl bg-emerald-500 text-white p-3 rounded-xl group-hover:scale-105 transition-transform">
-                  📥
-                </span>
-                <div>
-                  <h3 className="font-bold text-emerald-900 text-lg">
-                    Stock-In (Barang Masuk)
-                  </h3>
-                  <p className="text-xs text-emerald-700">
-                    Catat belanjaan bahan baku / kemasan baru
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('out')}
-                className="w-full p-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl flex items-center gap-4 text-left transition-all shadow-sm group"
-              >
-                <span className="text-3xl bg-rose-500 text-white p-3 rounded-xl group-hover:scale-105 transition-transform">
-                  📤
-                </span>
-                <div>
-                  <h3 className="font-bold text-rose-900 text-lg">
-                    Stock-Out (Barang Keluar)
-                  </h3>
-                  <p className="text-xs text-rose-700">
-                    Catat pemakaian bar atau distribusi ke gerobak
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('opname')}
-                className="w-full p-5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl flex items-center gap-4 text-left transition-all shadow-sm group"
-              >
-                <span className="text-3xl bg-blue-500 text-white p-3 rounded-xl group-hover:scale-105 transition-transform">
-                  📋
-                </span>
-                <div>
-                  <h3 className="font-bold text-blue-900 text-lg">
-                    Stok Opname Fisik
-                  </h3>
-                  <p className="text-xs text-blue-700">
-                    Hitung fisik berkala untuk cek selisih sistem
-                  </p>
-                </div>
-              </button>
+        {/* INPUT MUTASI FORM CONTAINER */}
+        {activeMode !== 'menu' && (
+          <>
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase">Petugas:</span>
+              <select value={kru} onChange={(e) => setKru(e.target.value)} className="text-xs font-bold bg-transparent outline-none text-zinc-800 cursor-pointer" required>
+                <option value="">-- Pilih Nama Anda --</option>
+                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
             </div>
-          )}
 
-          {/* ================= LAYAR STOCK-IN (BARANG MASUK) ================= */}
-          {activeTab === 'in' && (
-            <form onSubmit={handleSubmitIn} className="space-y-4">
+            <form onSubmit={handleTambahCart} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+              {/* Item Dropdown */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Tanggal Belanja
-                </label>
-                <input
-                  type="date"
-                  value={formIn.tanggal}
-                  onChange={(e) =>
-                    setFormIn({ ...formIn, tanggal: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-gray-50 text-gray-700 font-medium"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Penginput (Kru)
-                </label>
-                <select
-                  value={formIn.penginput}
-                  onChange={(e) =>
-                    setFormIn({ ...formIn, penginput: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                  required
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5">Pilih Item Logistik</label>
+                <select 
+                  value={activeMode === 'IN' ? itemIn.id : activeMode === 'OUT' ? itemOut.id : itemOpname.id}
+                  onChange={(e) => {
+                    if(activeMode === 'IN') setItemIn({...itemIn, id: e.target.value});
+                    if(activeMode === 'OUT') setItemOut({...itemOut, id: e.target.value});
+                    if(activeMode === 'OPNAME') setItemOpname({...itemOpname, id: e.target.value});
+                  }}
+                  className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold"
                 >
-                  <option value="">-- Pilih Nama --</option>
-                  {daftarKru.map((k, i) => (
-                    <option key={i} value={k}>
-                      {k}
-                    </option>
-                  ))}
+                  {listMasterProduk.map(p => <option key={p.id} value={p.id}>{p.id} - {p.nama} ({p.satuan})</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Pilih Item Barang
-                </label>
-                <select
-                  value={formIn.idProduk}
-                  onChange={(e) =>
-                    setFormIn({ ...formIn, idProduk: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                  required
-                >
-                  <option value="">-- Pilih Item --</option>
-                  {listProduk.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.id} - {p.nama} ({p.satuan})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Kuantiti Masuk
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={formIn.kuantiti}
-                    onChange={(e) =>
-                      setFormIn({
-                        ...formIn,
-                        kuantiti: parseInt(e.target.value) || '',
-                      })
-                    }
-                    className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Harga Satuan (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Rp 0"
-                    value={formIn.hargaSatuan}
-                    onChange={(e) =>
-                      setFormIn({
-                        ...formIn,
-                        hargaSatuan: parseInt(e.target.value) || '',
-                      })
-                    }
-                    className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 mt-4">
-                <span className="text-xs text-emerald-700 font-semibold block mb-1">
-                  Estimasi Total Belanja
-                </span>
-                <span className="text-2xl font-black text-emerald-800">
-                  Rp {totalBelanjaIn.toLocaleString('id-ID')}
-                </span>
-              </div>
-              <button
-                type="submit"
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md mt-6"
-              >
-                💾 SIMPAN BARANG MASUK
-              </button>
-            </form>
-          )}
 
-          {/* ================= LAYAR STOCK-OUT (BARANG KELUAR) ================= */}
-          {activeTab === 'out' && (
-            <form onSubmit={handleSubmitOut} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Tanggal Keluar
-                </label>
-                <input
-                  type="date"
-                  value={formOut.tanggal}
-                  onChange={(e) =>
-                    setFormOut({ ...formOut, tanggal: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-gray-50 text-gray-700 font-medium"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Penanggung Jawab (Kru)
-                </label>
-                <select
-                  value={formOut.penginput}
-                  onChange={(e) =>
-                    setFormOut({ ...formOut, penginput: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                  required
-                >
-                  <option value="">-- Pilih Nama --</option>
-                  {daftarKru.map((k, i) => (
-                    <option key={i} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Pilih Item Barang
-                </label>
-                <select
-                  value={formOut.idProduk}
-                  onChange={(e) =>
-                    setFormOut({ ...formOut, idProduk: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                  required
-                >
-                  <option value="">-- Pilih Item --</option>
-                  {listProduk.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.id} - {p.nama} ({p.satuan})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Kuantiti Keluar
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={formOut.kuantiti}
-                    onChange={(e) =>
-                      setFormOut({
-                        ...formOut,
-                        kuantiti: parseInt(e.target.value) || '',
-                      })
-                    }
-                    className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Lokasi Tujuan
-                  </label>
-                  <select
-                    value={formOut.lokasi}
-                    onChange={(e) =>
-                      setFormOut({ ...formOut, lokasi: e.target.value })
-                    }
-                    className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                    required
-                  >
-                    <option value="Kedai Utama">☕ Kedai Utama</option>
-                    <option value="Gerobak">🛒 Gerobak</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Keterangan Tambahan
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Buat Restock Bar / Masuk Gerobak"
-                  value={formOut.keterangan}
-                  onChange={(e) =>
-                    setFormOut({ ...formOut, keterangan: e.target.value })
-                  }
-                  className="w-full p-3 border rounded-xl bg-white text-gray-700"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md mt-6"
-              >
-                💾 SIMPAN BARANG KELUAR
-              </button>
-            </form>
-          )}
-
-          {/* ================= LAYAR STOK OPNAME FISIK ================= */}
-          {activeTab === 'opname' && (
-            <div className="flex flex-col flex-1">
-              {/* Kolom Cari Barang & Pilih Penginput */}
-              <div className="space-y-3 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <select
-                  onChange={(e) =>
-                    alert(`Penginput diset ke: ${e.target.value}`)
-                  }
-                  className="w-full p-2 border rounded-lg bg-white text-sm text-gray-700 shadow-sm"
-                >
-                  <option value="">-- Pilih Petugas Opname --</option>
-                  {daftarKru.map((k, i) => (
-                    <option key={i} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  placeholder="🔍 Cari nama atau ID produk..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full p-2 border rounded-lg bg-white text-sm text-gray-700 shadow-sm outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-
-              {/* Daftar Barang Logistik */}
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-[40vh] pr-1">
-                {filteredProduk.map((p) => {
-                  const fisik = formOpname[p.id] ?? '';
-                  const selisih = fisik !== '' ? fisik - p.stokSistem : 0;
-
-                  return (
-                    <div
-                      key={p.id}
-                      className="p-3 border border-gray-200 rounded-xl shadow-xs bg-white space-y-2"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md">
-                            {p.id}
-                          </span>
-                          <h4 className="font-bold text-gray-800 text-sm mt-0.5">
-                            {p.nama}
-                          </h4>
-                        </div>
-                        <span className="text-xs font-semibold text-gray-500">
-                          Sistem:{' '}
-                          <strong className="text-gray-800">
-                            {p.stokSistem}
-                          </strong>{' '}
-                          {p.satuan}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-1 items-center border-t border-dashed border-gray-100">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500 font-medium">
-                            Fisik:
-                          </span>
-                          <input
-                            type="number"
-                            placeholder="Jumlah"
-                            value={fisik}
-                            onChange={(e) => {
-                              const val =
-                                e.target.value === ''
-                                  ? ''
-                                  : parseInt(e.target.value);
-                              setFormOpname({ ...formOpname, [p.id]: val });
-                            }}
-                            className="w-20 p-1 border rounded text-center text-sm font-bold bg-amber-50 text-amber-900 border-amber-200 focus:outline-amber-600"
-                          />
-                        </div>
-                        <div className="text-right text-xs">
-                          {fisik !== '' && (
-                            <span
-                              className={`font-bold px-2 py-1 rounded-md ${
-                                selisih === 0
-                                  ? 'text-green-700 bg-green-50'
-                                  : 'text-red-700 bg-red-50'
-                              }`}
-                            >
-                              Selisih: {selisih > 0 ? `+${selisih}` : selisih}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+              {/* DYNAMIC FIELD PER MODE */}
+              {activeMode === 'IN' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Kuantiti Masuk</label>
+                      <input type="number" placeholder="0" value={itemIn.qty} onChange={(e) => setItemIn({...itemIn, qty: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold outline-none" required />
                     </div>
-                  );
-                })}
-              </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Harga Beli Satuan</label>
+                      <input type="text" inputMode="numeric" placeholder="Rp" value={itemIn.harga} onChange={(e) => setItemIn({...itemIn, harga: formatInputRupiah(e.target.value)})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold outline-none" required />
+                    </div>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded-xl text-xs flex justify-between font-bold text-emerald-800">
+                    <span>Subtotal Mutasi:</span><span>Rp {totalHargaInTemp.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+              )}
 
-              <button
-                onClick={handleSubmitOpname}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md mt-auto"
-              >
-                💾 SIMPAN SEMUA HASIL OPNAME
+              {activeMode === 'OUT' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Kuantiti Keluar</label>
+                      <input type="number" placeholder="0" value={itemOut.qty} onChange={(e) => setItemOut({...itemOut, qty: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold outline-none" required />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Alokasi Tujuan</label>
+                      <select value={itemOut.tujuan} onChange={(e) => setItemOut({...itemOut, tujuan: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold outline-none">
+                        <option value="Kedai Utama">Kedai Utama</option>
+                        <option value="Gerobak">Gerobak Bajay</option>
+                      </select>
+                    </div>
+                  </div>
+                  <input type="text" placeholder="Keterangan (Cth: Restock Bar Pagi)..." value={itemOut.ket} onChange={(e) => setItemOut({...itemOut, ket: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
+                </div>
+              )}
+
+              {activeMode === 'OPNAME' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Jumlah Fisik Riil</label>
+                    <input type="number" placeholder="Dihitung Asli..." value={itemOpname.fisik} onChange={(e) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold outline-none" required />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Catatan Kondisi</label>
+                    <input type="text" placeholder="Cth: Bocor / Aman" value={itemOpname.ket} onChange={(e) => setItemOpname({...itemOpname, ket: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="w-full py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800">
+                + MASUKKAN BATCH LIST
               </button>
+            </form>
+          </>
+        )}
+
+        {/* BATCH CART LOGISTIK (DARK CONTAINER) */}
+        {cartStok.length > 0 && (
+          <div className="bg-zinc-900 p-5 rounded-2xl shadow-sm text-white space-y-4">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block border-b border-zinc-800 pb-2">Daftar Batch Mutasi Logistik ({cartStok.length} Items)</span>
+            
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+              {cartStok.map((item, idx) => (
+                <div key={idx} className="bg-zinc-800 p-2.5 rounded-xl border border-zinc-700 text-xs flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-white">{item.nama}</h4>
+                    <p className="text-[10px] text-zinc-400 mt-0.5">{item.qty} {item.satuan} • <span className="text-zinc-500">{item.infoExtra}</span></p>
+                  </div>
+                  <button onClick={() => setCartStok(cartStok.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-rose-400"><Trash2 size={14} /></button>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            <button onClick={() => {
+              setIsSubmitting(true);
+              setTimeout(() => { alert("Seluruh pergerakan logistik berhasil dicatat ke file basis data gudang!"); setIsSubmitting(false); setCartStok([]); setActiveMode('menu'); }, 1500);
+            }} disabled={isSubmitting} className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1">
+              <CheckCircle2 size={14} /> COMMIT & UPDATE DATA STOK
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
