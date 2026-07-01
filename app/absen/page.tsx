@@ -9,8 +9,8 @@ export default function AbsensiSaaS() {
   const [formData, setFormData] = useState({ nama: '', shift: '', status: 'Masuk' });
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [fotoBase64, setFotoBase64] = useState(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const daftarKru = ["Chika","Ibnu","Diska", "Nugye"];
