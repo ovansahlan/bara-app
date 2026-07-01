@@ -1,272 +1,282 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
-import { 
-  Package, ChevronLeft, Plus, Trash2, CheckCircle2, 
-  ArrowDownLeft, ArrowUpRight, ClipboardCheck, History 
-} from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Box, ArrowDownCircle, ArrowUpCircle, RefreshCw, Layers, Plus, Trash2, ListChecks } from 'lucide-react';
 
 interface Produk {
   id: string;
   nama: string;
+  kategori: string;
   satuan: string;
-  sistem: number;
 }
 
-interface CartItem {
-  id: string;
-  nama: string;
-  tipe: 'IN' | 'OUT' | 'OPNAME';
-  qty: number;
+interface ItemStok {
+  idProduk: string;
+  namaBarang: string;
   satuan: string;
-  infoExtra: string;
-  totalNilai: number;
+  kuantiti: number;
+  hargaBeliSatuan: number;
+  totalBelanja: number;
 }
 
-export default function LogistikSaaSTypeScript() {
-  const [activeMode, setActiveMode] = useState<'menu' | 'IN' | 'OUT' | 'OPNAME'>('menu');
-  const [kru, setKru] = useState<string>('');
-  const [cartStok, setCartStok] = useState<CartItem[]>([]);
+export default function ManajemenStokSaaS() {
+  const [activeTab, setActiveTab] = useState<'in' | 'out'>('in');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
 
-  const [itemIn, setItemIn] = useState({ id: 'B001', qty: '', harga: '' });
-  const [itemOut, setItemOut] = useState({ id: 'B001', qty: '', tujuan: 'Kedai Utama', ket: '' });
-  const [itemOpname, setItemOpname] = useState({ id: 'B001', fisik: '', ket: '' });
+  const [dbProduk, setDbProduk] = useState<Produk[]>([]);
+  const [daftarStok, setDaftarStok] = useState<ItemStok[]>([]); // Menyimpan daftar keranjang multi-input
 
-  const daftarKru = ["Chika", "Ibnu", "Novi", "Diska", "Nugye", "Ruslan", "A Novan"];
-  const listMasterProduk: Produk[] = [
-    { id: "B001", nama: "Susu Evaporasi", satuan: "Kaleng", sistem: 54 },
-    { id: "B002", nama: "Susu UHT", satuan: "Liter", sistem: 84 },
-    { id: "B003", nama: "Susu SKM", satuan: "Pouch", sistem: 6 },
-    { id: "B004", nama: "Creamer", satuan: "Kg", sistem: 4 },
-  ];
+  const [metaData, setMetaData] = useState({
+    tanggal: new Date().toISOString().split('T')[0],
+    penginput: '',
+    keterangan: 'Bahan Baku Bar',
+    lokasiTujuan: 'Kedai Utama'
+  });
 
-  const formatInputRupiah = (val: string) => {
-    const angkaSaja = val.replace(/\D/g, '');
-    return angkaSaja === '' ? '' : parseInt(angkaSaja, 10).toLocaleString('id-ID');
+  const [inputItem, setInputItem] = useState({
+    idProduk: '',
+    kuantiti: '',
+    hargaBeliSatuan: ''
+  });
+
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
+  const daftarLokasiTujuan = ["Kedai Utama", "Gerobak"]; 
+  const daftarKeteranganOut = ["Bahan Baku Bar", "Bahan Baku Dapur", "Kemasan / Packaging", "Bahan Rusak / Kadaluwarsa", "Lainnya"];
+
+  const formatRupiah = (angka: string) => {
+    const nomor = angka.replace(/\D/g, '');
+    return nomor === '' ? '' : parseInt(nomor, 10).toLocaleString('id-ID');
   };
 
-  const totalHargaInTemp = (parseInt(itemIn.qty) || 0) * (parseInt((itemIn.harga || '').replace(/\./g, '')) || 0);
+  const bersihAngka = (teks: string) => parseInt(teks.replace(/\./g, ''), 10) || 0;
 
-  const handleTambahCart = (e: FormEvent) => {
-    e.preventDefault();
-    if (!kru) return alert("Pilih Petugas Gudang!");
-
-    const currentMaster = listMasterProduk.find(p => p.id === (activeMode === 'IN' ? itemIn.id : activeMode === 'OUT' ? itemOut.id : itemOpname.id));
-    if (!currentMaster) return;
-
-    if (activeMode === 'IN') {
-      if (!itemIn.qty || !itemIn.harga) return alert("Lengkapi data barang masuk!");
-      
-      const idxSama = cartStok.findIndex(c => c.id === itemIn.id && c.tipe === 'IN');
-      if (idxSama !== -1) {
-        const upCart = [...cartStok];
-        upCart[idxSama].qty += parseInt(itemIn.qty);
-        upCart[idxSama].totalNilai += totalHargaInTemp;
-        setCartStok(upCart);
-      } else {
-        setCartStok([...cartStok, {
-          id: itemIn.id, nama: currentMaster.nama, tipe: 'IN',
-          qty: parseInt(itemIn.qty), satuan: currentMaster.satuan,
-          infoExtra: `Rp ${itemIn.harga}/satuan`, totalNilai: totalHargaInTemp
-        }]);
+  useEffect(() => {
+    const fetchDBProduk = async () => {
+      setIsLoadingData(true);
+      try {
+        const res = await fetch('/api/stok');
+        const data = await res.json();
+        if (res.ok) {
+          setDbProduk(data.masterProduk || []);
+        }
+      } catch (error) {
+        console.error("Gagal menarik DB_Produk", error);
+      } finally {
+        setIsLoadingData(false);
       }
-      setItemIn({ id: 'B001', qty: '', harga: '' });
-    } 
-    else if (activeMode === 'OUT') {
-      if (!itemOut.qty) return alert("Masukkan kuantiti keluar!");
-      setCartStok([...cartStok, {
-        id: itemOut.id, nama: currentMaster.nama, tipe: 'OUT',
-        qty: parseInt(itemOut.qty), satuan: currentMaster.satuan,
-        infoExtra: `Tujuan: ${itemOut.tujuan} ${itemOut.ket ? `(${itemOut.ket})` : ''}`, totalNilai: 0
-      }]);
-      setItemOut({ id: 'B001', qty: '', tujuan: 'Kedai Utama', ket: '' });
-    }
-    else if (activeMode === 'OPNAME') {
-      if (!itemOpname.fisik) return alert("Masukkan fisik asli gudang!");
-      
-      const selisih = parseInt(itemOpname.fisik) - currentMaster.sistem;
-      setCartStok([...cartStok, {
-        id: itemOpname.id, nama: currentMaster.nama, tipe: 'OPNAME',
-        qty: parseInt(itemOpname.fisik), satuan: currentMaster.satuan,
-        infoExtra: `Sistem: ${currentMaster.sistem} | Selisih: ${selisih > 0 ? `+${selisih}` : selisih} ${itemOpname.ket ? `[${itemOpname.ket}]` : ''}`, totalNilai: 0
-      }]);
-      setItemOpname({ id: 'B001', fisik: '', ket: '' });
+    };
+    fetchDBProduk();
+  }, []);
+
+  // Mereset keranjang ketika tab ditekan (karena format data In/Out berbeda)
+  const handleTabChange = (newTab: 'in' | 'out') => {
+    setActiveTab(newTab);
+    setDaftarStok([]);
+    setInputItem({ idProduk: '', kuantiti: '', hargaBeliSatuan: '' });
+  };
+
+  // 1. Fungsi Tambah Item ke Draft Keranjang
+  const handleTambahItem = (e: FormEvent) => {
+    e.preventDefault();
+    if (!inputItem.idProduk) return alert("Pilih barang dari gudang terlebih dahulu!");
+    if (!inputItem.kuantiti || parseFloat(inputItem.kuantiti) <= 0) return alert("Kuantiti harus diisi!");
+
+    const produkPilihan = dbProduk.find(p => p.id === inputItem.idProduk);
+    if (!produkPilihan) return;
+
+    const qty = parseFloat(inputItem.kuantiti);
+    const hargaSatuan = activeTab === 'in' ? bersihAngka(inputItem.hargaBeliSatuan) : 0;
+    const total = qty * hargaSatuan;
+
+    const itemBaru: ItemStok = {
+      idProduk: produkPilihan.id,
+      namaBarang: produkPilihan.nama,
+      satuan: produkPilihan.satuan,
+      kuantiti: qty,
+      hargaBeliSatuan: hargaSatuan,
+      totalBelanja: total
+    };
+
+    setDaftarStok([...daftarStok, itemBaru]);
+    setInputItem({ idProduk: '', kuantiti: '', hargaBeliSatuan: '' }); // Bersihkan input
+  };
+
+  // 2. Fungsi Hapus Item dari Keranjang
+  const hapusItemKeranjang = (index: number) => {
+    setDaftarStok(daftarStok.filter((_, i) => i !== index));
+  };
+
+  // 3. Fungsi Tembak Semua Data ke API
+  const handleSimpanSemua = async () => {
+    if (!metaData.penginput) return alert("Pilih Nama Kru penanggungjawab terlebih dahulu!");
+    if (daftarStok.length === 0) return alert("Keranjang stok masih kosong!");
+
+    setIsSubmitting(true);
+
+    const payload = {
+      type: activeTab,
+      tanggal: metaData.tanggal,
+      penginput: metaData.penginput,
+      keterangan: metaData.keterangan,
+      lokasiTujuan: metaData.lokasiTujuan,
+      daftarStok: daftarStok // Mengirim array penuh
+    };
+
+    try {
+      const response = await fetch('/api/stok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        setDaftarStok([]); // Kosongkan keranjang jika berhasil
+      } else {
+        alert(`❌ Gagal menyimpan: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("❌ Terjadi kendala jaringan.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const totalNilaiBelanjaKeranjang = daftarStok.reduce((sum, item) => sum + item.totalBelanja, 0);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      
-      {/* Header */}
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <button 
-            onClick={() => activeMode === 'menu' ? window.location.href = '/' : (setActiveMode('menu'), setCartStok([]))} 
-            className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200 transition-colors"
-          >
+          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200/80 transition-colors">
             <ChevronLeft size={20} />
-          </button>
-          <h1 className="text-sm font-bold tracking-wide uppercase text-zinc-800">
-            {activeMode === 'menu' ? 'Gudang & Logistik' : `Mutasi: ${activeMode}`}
+          </Link>
+          <h1 className="text-sm font-bold tracking-wide text-zinc-800 uppercase flex items-center gap-1.5">
+            <Box size={16} className="text-indigo-500" /> Logistik Gudang
           </h1>
           <div className="w-9 h-9"></div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
+      <div className="max-w-md mx-auto px-4 mt-5 space-y-4">
         
-        {/* MENU UTAMA SELEKTOR MUTASI */}
-        {activeMode === 'menu' && (
-          <div className="space-y-3 pt-4">
-            <button onClick={() => setActiveMode('IN')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100"><ArrowDownLeft size={20} /></div>
-              <div>
-                <h3 className="text-sm font-bold text-zinc-800">Stock-In (Barang Masuk)</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5">Penambahan pasokan atau pembelanjaan logistik baru</p>
-              </div>
-            </button>
-            <button onClick={() => setActiveMode('OUT')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-xl border border-rose-100"><ArrowUpRight size={20} /></div>
-              <div>
-                <h3 className="text-sm font-bold text-zinc-800">Stock-Out (Barang Keluar)</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5">Pemakaian bahan baku di bar atau oper logistik ke gerobak</p>
-              </div>
-            </button>
-            <button onClick={() => setActiveMode('OPNAME')} className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100"><ClipboardCheck size={20} /></div>
-              <div>
-                <h3 className="text-sm font-bold text-zinc-800">Stock Opname Harian</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5">Audit kesesuaian fisik asli di kulkas dengan sistem</p>
-              </div>
-            </button>
+        {/* TAB SWITCHER */}
+        <div className="grid grid-cols-2 p-1.5 bg-zinc-200 rounded-2xl border border-zinc-300">
+          <button type="button" onClick={() => handleTabChange('in')} className={`py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${activeTab === 'in' ? 'bg-white text-emerald-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>
+            <ArrowDownCircle size={14} /> Stok Masuk
+          </button>
+          <button type="button" onClick={() => handleTabChange('out')} className={`py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${activeTab === 'out' ? 'bg-white text-rose-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>
+            <ArrowUpCircle size={14} /> Stok Keluar
+          </button>
+        </div>
 
-            <Link href="/stok/riwayat" className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98 block">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100"><History size={20} /></div>
-              <div>
-                <h3 className="text-sm font-bold text-zinc-800">Aset & Riwayat Jurnal</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5">Lihat nilai total saldo bahan baku & log timeline mutasi</p>
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* UTILITY BAR INFORMASI PETUGAS */}
-        {activeMode !== 'menu' && (
-          <>
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase">Petugas Gudang:</span>
-              <select 
-                value={kru} 
-                onChange={(e: ChangeEvent<HTMLSelectElement>) => setKru(e.target.value)} 
-                className="text-xs font-bold bg-transparent outline-none text-zinc-800 cursor-pointer" 
-                required
-              >
-                <option value="">-- Pilih Nama Anda --</option>
+        {/* 1. METADATA GLOBAL (Berlaku untuk semua barang di keranjang) */}
+        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal</label>
+              <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" required />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Penginput</label>
+              <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
+                <option value="">-- Pilih Kru --</option>
                 {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
+          </div>
 
-            {/* FORM MULTI-INPUT MUTASI BARANG */}
-            <form onSubmit={handleTambahCart} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4 relative overflow-hidden">
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeMode === 'IN' ? 'bg-emerald-500' : activeMode === 'OUT' ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
-              
+          {activeTab === 'out' && (
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-zinc-100">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5">Nama Item Logistik</label>
-                <select 
-                  value={activeMode === 'IN' ? itemIn.id : activeMode === 'OUT' ? itemOut.id : itemOpname.id} 
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    if(activeMode === 'IN') setItemIn({...itemIn, id: e.target.value});
-                    if(activeMode === 'OUT') setItemOut({...itemOut, id: e.target.value});
-                    if(activeMode === 'OPNAME') setItemOpname({...itemOpname, id: e.target.value});
-                  }} 
-                  className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold text-zinc-800 outline-none focus:bg-white"
-                >
-                  {listMasterProduk.map(p => <option key={p.id} value={p.id}>{p.id} - {p.nama} ({p.satuan})</option>)}
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Keterangan / Alasan</label>
+                <select value={metaData.keterangan} onChange={(e) => setMetaData({...metaData, keterangan: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-700 outline-none cursor-pointer">
+                  {daftarKeteranganOut.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Lokasi Tujuan</label>
+                <select value={metaData.lokasiTujuan} onChange={(e) => setMetaData({...metaData, lokasiTujuan: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-700 outline-none cursor-pointer">
+                  {daftarLokasiTujuan.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
 
-              {/* INPUT SPESIFIK BERDASARKAN MODE OPERASIONAL */}
-              {activeMode === 'IN' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Kuantiti Masuk" value={itemIn.qty} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemIn({...itemIn, qty: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
-                    <input type="text" inputMode="numeric" placeholder="Harga Beli Satuan" value={itemIn.harga} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemIn({...itemIn, harga: formatInputRupiah(e.target.value)})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
-                  </div>
-                  <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs flex justify-between font-bold text-zinc-600">
-                    <span>Subtotal Nilai Mutasi:</span>
-                    <span className="text-emerald-600">Rp {totalHargaInTemp.toLocaleString('id-ID')}</span>
-                  </div>
-                </div>
-              )}
+        {/* 2. FORM INPUT BARANG SATUAN KE KERANJANG */}
+        <form onSubmit={handleTambahItem} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4 relative overflow-hidden">
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeTab === 'in' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Pilih Barang dari Gudang</span>
+          
+          <select value={inputItem.idProduk} onChange={(e) => setInputItem({...inputItem, idProduk: e.target.value})} disabled={isLoadingData} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none focus:bg-white cursor-pointer" required>
+            <option value="">{isLoadingData ? 'Memuat DB_Produk...' : '-- Pilih Item Produk --'}</option>
+            {dbProduk.map(p => (
+              <option key={p.id} value={p.id}>[{p.id}] {p.nama}</option>
+            ))}
+          </select>
 
-              {activeMode === 'OUT' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Kuantiti Keluar" value={itemOut.qty} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOut({...itemOut, qty: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
-                    <select value={itemOut.tujuan} onChange={(e: ChangeEvent<HTMLSelectElement>) => setItemOut({...itemOut, tujuan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold outline-none">
-                      <option value="Kedai Utama">Kedai Utama</option>
-                      <option value="Gerobak">Gerobak Bajay</option>
-                    </select>
-                  </div>
-                  <input type="text" placeholder="Catatan Tambahan (Cth: Bar Bocor / Rusak)..." value={itemOut.ket} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOut({...itemOut, ket: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
-                </div>
-              )}
-
-              {activeMode === 'OPNAME' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* FIX UTAMA: Mengubah itemOpname.physic menjadi itemOpname.fisik */}
-                    <input type="number" placeholder="Fisik Riil Dihitung" value={itemOpname.fisik} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
-                    <input type="text" placeholder="Keterangan Kondisi..." value={itemOpname.ket} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, ket: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
-                  </div>
-                </div>
-              )}
-
-              <button type="submit" className="w-full py-3 bg-zinc-950 text-white text-xs font-bold rounded-xl transition-all active:scale-98 shadow-sm flex items-center justify-center gap-1">
-                <Plus size={14} strokeWidth={2.5} /> MASUKKAN KE BATCH LIST
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* KERANJANG MUTASI RINGKASAN BATCH */}
-        {cartStok.length > 0 && (
-          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-lg text-white space-y-4">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block border-b border-zinc-800 pb-2">Batch Antrean Mutasi ({cartStok.length} Items)</span>
+          <div className={`grid gap-2 ${activeTab === 'in' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-xs">Qty:</span>
+              <input type="number" step="any" placeholder="0" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 pl-10 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-black outline-none focus:bg-white" required />
+            </div>
             
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-              {cartStok.map((item, idx) => (
+            {activeTab === 'in' && (
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-xs">Rp/Pcs</span>
+                <input type="text" inputMode="numeric" placeholder="Harga" value={inputItem.hargaBeliSatuan} onChange={(e) => setInputItem({...inputItem, hargaBeliSatuan: formatRupiah(e.target.value)})} className="w-full p-3 pl-16 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-black outline-none focus:bg-white text-right" required />
+              </div>
+            )}
+          </div>
+
+          <button type="submit" className="w-full py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-zinc-800 transition-colors">
+            <Plus size={14} strokeWidth={2.5} /> Tambahkan Ke Draft List
+          </button>
+        </form>
+
+        {/* 3. DAFTAR KERANJANG (MULTI-INPUT) */}
+        {daftarStok.length > 0 && (
+          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-md text-white space-y-4">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ListChecks size={12} /> Draft {activeTab === 'in' ? 'Stok Masuk' : 'Stok Keluar'}
+              </span>
+              {activeTab === 'in' && (
+                <span className="text-sm font-black text-emerald-400">Total: Rp {totalNilaiBelanjaKeranjang.toLocaleString('id-ID')}</span>
+              )}
+            </div>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {daftarStok.map((item, idx) => (
                 <div key={idx} className="bg-zinc-800/90 p-3 rounded-xl border border-zinc-700/60 text-xs flex justify-between items-center">
                   <div>
-                    <h4 className="font-bold text-white flex items-center gap-1.5">
-                      {item.nama} 
-                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                        item.tipe === 'IN' ? 'bg-emerald-900 text-emerald-300' : item.tipe === 'OUT' ? 'bg-rose-900 text-rose-300' : 'bg-blue-900 text-blue-300'
-                      }`}>{item.tipe}</span>
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 mt-1 font-medium">{item.qty} {item.satuan} • <span className="text-zinc-500 font-normal">{item.infoExtra}</span></p>
+                    <h4 className="font-bold text-white">[{item.idProduk}] {item.namaBarang}</h4>
+                    <p className="text-[10px] text-zinc-400 mt-1 font-medium">
+                      Qty {activeTab === 'in' ? 'Masuk' : 'Keluar'}: <b className="text-zinc-200">{item.kuantiti} {item.satuan}</b>
+                      {activeTab === 'in' && ` × @ Rp ${item.hargaBeliSatuan.toLocaleString('id-ID')}`}
+                    </p>
                   </div>
-                  <button onClick={() => setCartStok(cartStok.filter((_, i) => i !== idx))} className="p-2 bg-zinc-700/30 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors">
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {activeTab === 'in' && <span className="font-bold text-emerald-300">Rp {item.totalBelanja.toLocaleString('id-ID')}</span>}
+                    <button type="button" onClick={() => hapusItemKeranjang(idx)} className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <button 
-              onClick={() => { 
-                setIsSubmitting(true); 
-                setTimeout(() => { 
-                  alert("Seluruh mutasi logistik berhasil divalidasi ke database stok!"); 
-                  setIsSubmitting(false); setCartStok([]); setActiveMode('menu'); 
-                }, 1500); 
-              }} 
-              disabled={isSubmitting} 
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className={`w-full py-4 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${
+                isSubmitting ? 'bg-zinc-700 cursor-not-allowed' : activeTab === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+              }`}
             >
-              <CheckCircle2 size={16} /> COMMIT & UPDATE DATA STOK
+              <CheckCircle2 size={14} /> {isSubmitting ? 'Mengirim Data Batch...' : `SIMPAN SEMUA ${daftarStok.length} ITEM SEKALIGUS`}
             </button>
           </div>
         )}
