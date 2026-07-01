@@ -2,7 +2,10 @@
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
-import { Package, ChevronLeft, Plus, Trash2, CheckCircle2, ArrowDownLeft, ArrowUpRight, ClipboardCheck } from 'lucide-react';
+import { 
+  Package, ChevronLeft, Plus, Trash2, CheckCircle2, 
+  ArrowDownLeft, ArrowUpRight, ClipboardCheck, History 
+} from 'lucide-react';
 
 interface Produk {
   id: string;
@@ -95,7 +98,8 @@ export default function LogistikSaaSTypeScript() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      {/* Header Statis SaaS */}
+      
+      {/* Header */}
       <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
           <button 
@@ -137,6 +141,15 @@ export default function LogistikSaaSTypeScript() {
                 <p className="text-[10px] text-zinc-400 mt-0.5">Audit kesesuaian fisik asli di kulkas dengan sistem</p>
               </div>
             </button>
+
+            {/* AKASES BARU: TOMBOL NAVIGASI MENUJU HALAMAN ASET & RIWAYAT STOK */}
+            <Link href="/stok/riwayat" className="w-full p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm flex items-center gap-4 text-left transition-all hover:border-zinc-300 active:scale-98 block">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100"><History size={20} /></div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-800">Aset & Riwayat Jurnal</h3>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Lihat nilai total saldo bahan baku & log timeline mutasi</p>
+              </div>
+            </Link>
           </div>
         )}
 
@@ -175,7 +188,6 @@ export default function LogistikSaaSTypeScript() {
                 </select>
               </div>
 
-              {/* INPUT SPESIFIK BERDASARKAN MODE OPERASIONAL */}
               {activeMode === 'IN' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -205,7 +217,7 @@ export default function LogistikSaaSTypeScript() {
               {activeMode === 'OPNAME' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Fisik Riil Dihitung" value={itemOpname.fisik} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
+                    <input type="number" placeholder="Fisik Riil Dihitung" value={itemOpname.physic} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, fisik: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-semibold outline-none focus:bg-white" required />
                     <input type="text" placeholder="Keterangan Kondisi..." value={itemOpname.ket} onChange={(e: ChangeEvent<HTMLInputElement>) => setItemOpname({...itemOpname, ket: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:bg-white" />
                   </div>
                 </div>
@@ -218,9 +230,9 @@ export default function LogistikSaaSTypeScript() {
           </>
         )}
 
-        {/* KERANJANG MUTASI RINGKASAN BATCH (SAAS DARK CONTAINER) */}
+        {/* KERANJANG MUTASI RINGKASAN BATCH */}
         {cartStok.length > 0 && (
-          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-lg text-white space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-lg text-white space-y-4">
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block border-b border-zinc-800 pb-2">Batch Antrean Mutasi ({cartStok.length} Items)</span>
             
             <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
@@ -246,7 +258,7 @@ export default function LogistikSaaSTypeScript() {
               onClick={() => { 
                 setIsSubmitting(true); 
                 setTimeout(() => { 
-                  alert("Seluruh mutasi logistik berhasil divalidasi ke basis data stok!"); 
+                  alert("Seluruh mutasi logistik berhasil divalidasi ke database stok!"); 
                   setIsSubmitting(false); setCartStok([]); setActiveMode('menu'); 
                 }, 1500); 
               }} 
