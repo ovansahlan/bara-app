@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  RefreshCw, Calendar, TrendingUp, Wallet, PlusCircle,
+  RefreshCw, Calendar, TrendingUp, Wallet, PlusCircle, Banknote, Smartphone, CreditCard, ArrowUpRight,
   UserCheck, Landmark, PackagePlus, PackageMinus, ShieldCheck, LogOut, ArrowRightLeft, Boxes
 } from 'lucide-react';
 
@@ -17,7 +17,7 @@ export default function DashboardOwner() {
   const fetchDataOwner = async (tanggalStr: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/owner?tanggal=${tanggalStr}`);
+      const res = await fetch(`/api/owner?tanggal=${tanggalStr}`, { cache: 'no-store' });
       const result = await res.json();
       if (res.ok) setData(result);
     } catch (error) {
@@ -82,25 +82,25 @@ export default function DashboardOwner() {
           </div>
         </div>
 
-        {/* TOMBOL LINK KHUSUS UNTUK CATAT BELANJA OWNER */}
+        {/* TOMBOL LINK BELANJA OWNER */}
         <Link href="/owner/belanja" className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center hover:bg-amber-100/60 transition-all shadow-3xs group">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs"><Wallet size={16} /></div>
             <div>
-              <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Aksi Owner</p>
-              <p className="text-xs font-black text-amber-950">Catat Belanja Pribadi / Investasi</p>
+              <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Kelola Arus Kas</p>
+              <p className="text-xs font-black text-amber-950">Catat Belanja Owner / Investasi</p>
             </div>
           </div>
           <PlusCircle size={18} className="text-amber-500 group-hover:scale-110 transition-transform" />
         </Link>
 
-        {/* METRICS GRID FINANSIAL SINKRONISASI ASSET GUDANG */}
+        {/* METRICS GRID FINANSIAL */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Omset Kotor Kedai</span>
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Total Omset Bulan Ini</span>
             <div className="flex items-baseline gap-1 text-zinc-800 font-black text-sm">
               <TrendingUp size={14} className="text-emerald-500 mr-1" />
-              Rp {data ? formatIDR(data.metrics.omset) : '0'}
+              Rp {data ? formatIDR(data.metrics.omset.total) : '0'}
             </div>
           </div>
 
@@ -118,19 +118,19 @@ export default function DashboardOwner() {
               <Landmark size={14} className="text-slate-600 mr-1" />
               Rp {data ? formatIDR(data.metrics.saldoGudangKas) : '0'}
             </div>
-            <p className="text-[8px] text-zinc-400 font-bold mt-1 uppercase">Plafon: Rp 8.000.000</p>
+            <p className="text-[8px] text-zinc-400 font-bold mt-1 uppercase">Limit: Rp 8.000.000</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Belanja Pribadi Owner</span>
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Total Belanja Owner</span>
             <div className="flex items-baseline gap-1 text-zinc-800 font-black text-sm">
               <Wallet size={14} className="text-amber-500 mr-1" />
-              Rp {data ? formatIDR(data.metrics.pengenerOwner) || formatIDR(data.metrics.pengeluaranOwner) : '0'}
+              Rp {data ? formatIDR(data.metrics.belanjaOwner) : '0'}
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm col-span-2">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Biaya Operasional Kru</span>
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Total Belanja Kru</span>
             <div className="flex items-baseline gap-1 text-zinc-800 font-black text-sm">
               <UserCheck size={14} className="text-rose-500 mr-1" />
               Rp {data ? formatIDR(data.metrics.pengeluaranKru) : '0'}
@@ -138,7 +138,32 @@ export default function DashboardOwner() {
           </div>
         </div>
 
-        {/* LOG PERGERAKAN STOK GUDANG TERBARU */}
+        {/* BARU: BREAKDOWN TOTAL OMSET BULANAN BERDASARKAN TIPE BAYAR */}
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+          <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Rincian Metode Pembayaran Bulan Ini</span>
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              <Banknote size={14} className="text-zinc-400" />
+              <div><p className="text-[8px] font-bold text-zinc-400 uppercase">Total Tunai</p><p className="text-xs font-black text-zinc-700">Rp {data ? formatIDR(data.metrics.omset.tunai) : '0'}</p></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Smartphone size={14} className="text-zinc-400" />
+              <div><p className="text-[8px] font-bold text-zinc-400 uppercase">Total QRIS</p><p className="text-xs font-black text-zinc-700">Rp {data ? formatIDR(data.metrics.omset.qris) : '0'}</p></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <CreditCard size={14} className="text-zinc-400" />
+              <div><p className="text-[8px] font-bold text-zinc-400 uppercase">Total EDC/Transfer</p><p className="text-xs font-black text-zinc-700">Rp {data ? formatIDR(data.metrics.omset.edc) : '0'}</p></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <ArrowUpRight size={14} className="text-zinc-400" />
+              <div><p className="text-[8px] font-bold text-zinc-400 uppercase">Total Grab Online</p><p className="text-xs font-black text-zinc-700">Rp {data ? formatIDR(data.metrics.omset.grab) : '0'}</p></div>
+            </div>
+          </div>
+        </div>
+
+        {/* LOG PERGERAKAN STOK GUDANG TERBARU (ANTI-HEADER) */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-1.5 px-1">
             <ArrowRightLeft size={13} className="text-zinc-400" />
@@ -152,7 +177,7 @@ export default function DashboardOwner() {
             </div>
             <div className="divide-y divide-zinc-100 text-xs">
               {data?.stokMasuk && data.stokMasuk.length > 0 ? data.stokMasuk.map((row: any, i: number) => (
-                <div key={i} className="p-3 flex justify-between items-center bg-white hover:bg-zinc-50 transition-colors">
+                <div key={i} className="p-3 flex justify-between items-center bg-white">
                   <div>
                     <p className="font-bold text-zinc-700">{row.nama}</p>
                     <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">Oleh {row.pic} • {row.tgl}</p>
@@ -172,7 +197,7 @@ export default function DashboardOwner() {
             </div>
             <div className="divide-y divide-zinc-100 text-xs">
               {data?.stokKeluar && data.stokKeluar.length > 0 ? data.stokKeluar.map((row: any, i: number) => (
-                <div key={i} className="p-3 flex justify-between items-center bg-white hover:bg-zinc-50 transition-colors">
+                <div key={i} className="p-3 flex justify-between items-center bg-white">
                   <div>
                     <p className="font-bold text-zinc-700">{row.nama}</p>
                     <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">Tujuan: {row.tujuan} • {row.tgl}</p>

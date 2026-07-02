@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -44,17 +46,24 @@ export async function GET(request: Request) {
     
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    let totalOmsetBulanIni = 0;
+    // Objek Rincian Tipe Bayar Bulanan
+    const omsetBulanIni = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     let totalPengeluaranKruBulanIni = 0;
-    let totalPengeluaranOwnerBulanIni = 0;
+    let totalBelanjaOwnerBulanIni = 0;
 
+    // 1. Akumulasi & Breakdown Omset Bulanan
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        totalOmsetBulanIni += parseRupiah(row[7]);
+        omsetBulanIni.tunai += parseRupiah(row[3]);
+        omsetBulanIni.qris += parseRupiah(row[4]);
+        omsetBulanIni.edc += parseRupiah(row[5]);
+        omsetBulanIni.grab += parseRupiah(row[6]);
+        omsetBulanIni.total += parseRupiah(row[7]);
       }
     });
 
+    // 2. Pengeluaran Kru Bulanan
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -62,19 +71,21 @@ export async function GET(request: Request) {
       }
     });
 
+    // 3. Belanja yang Dikeluarkan Owner Bulanan
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        totalPengeluaranOwnerBulanIni += parseRupiah(row[3]);
+        totalBelanjaOwnerBulanIni += parseRupiah(row[3]);
       }
     });
 
+    // 4. Perhitungan Real-Time Gudang Moving Average
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
 
     const rowsIn = resStokIn.data.values || [];
     rowsIn.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header jika terbawa
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyIn += parseQty(row[3]);
       kalkulasiGudang[idStr].totalCostIn += parseRupiah(row[5]);
@@ -83,7 +94,7 @@ export async function GET(request: Request) {
     const rowsOut = resStokOut.data.values || [];
     rowsOut.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header jika terbawa
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
     });
@@ -97,19 +108,27 @@ export async function GET(request: Request) {
     });
 
     const sisaKasGudangFisik = 8000000 - totalNilaiAsetGudangAktif;
-    const sisaSaldoBersihBara = totalOmsetBulanIni - totalPengeluaranKruBulanIni - totalPengeluaranOwnerBulanIni;
+    const sisaSaldoBersihBara = omsetBulanIni.total - totalPengeluaranKruBulanIni - totalBelanjaOwnerBulanIni;
+
+    // FILTER ANTI HEADER UNTUK HISTORI MUTASI TERBARU
+    const stokMasukFiltered = rowsIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
+    const stokKeluarFiltered = rowsOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
+
+    // Mapping sesuai struktur: Tanggal, ID Produk, Nama Barang, Kuantiti Keluar, Keterangan, Penginput, Harga Item, Total, Lokasi Tujuan
+    const mutasiMasuk = stokMasukFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] }));
+    const mutasiKeluar = stokKeluarFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }));
 
     return NextResponse.json({
       metrics: {
-        omset: totalOmsetBulanIni,
+        omset: omsetBulanIni, // Mengirim objek lengkap
         pengeluaranKru: totalPengeluaranKruBulanIni,
-        pengeluaranOwner: totalPengeluaranOwnerBulanIni,
+        belanjaOwner: totalBelanjaOwnerBulanIni,
         sisaSaldo: sisaSaldoBersihBara,
         saldoGudangKas: sisaKasGudangFisik,      
         nilaiAsetGudang: totalNilaiAsetGudangAktif 
       },
-      stokMasuk: rowsIn.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] })),
-      stokKeluar: rowsOut.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[5] }))
+      stokMasuk: mutasiMasuk,
+      stokKeluar: mutasiKeluar
     });
 
   } catch (error: any) {
@@ -142,21 +161,19 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
-    // Format Baris Baru: Tanggal | Kategori Internal | Keterangan Lengkap | Nominal (Rp)
-    const barisBaru = [formatTanggalID, kategori, keterangan, nominal];
+    const dataBaris = [formatTanggalID, kategori, keterangan, nominal];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Belanja_Owner!A:D',
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [barisBaru] },
+      requestBody: { values: [dataBaris] },
     });
 
-    return NextResponse.json({ success: true, message: 'Investasi/Belanja Owner berhasil dikunci ke spreadsheet!' });
+    return NextResponse.json({ success: true, message: 'Catatan Belanja Owner berhasil dikunci!' });
 
   } catch (error: any) {
-    console.error('API Owner POST Error:', error);
-    return NextResponse.json({ error: 'Gagal mencatat belanja pribadi owner.', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal menyimpan data.' }, { status: 500 });
   }
 }
