@@ -30,8 +30,27 @@ export default function InputOmsetSaaS() {
   const [omsetPagi, setOmsetPagi] = useState<RincianOmset | null>(null);
   const [isLoadingHelper, setIsLoadingHelper] = useState<boolean>(false);
 
-  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
+  // STATE BARU: Penampung nama kru dinamis
+  const [daftarKru, setDaftarKru] = useState<any[]>([]);
+  const [loadingKru, setLoadingKru] = useState<boolean>(true);
+
   const daftarShift = ["Shift 1 (Pagi)", "Shift 2 (Malam/Tutup)", "Full Day (Gabungan)"];
+
+  // KODE DINAMIS: Ambil data kru Kedai yang aktif dari API Master Kru
+  useEffect(() => {
+    const fetchKru = async () => {
+      try {
+        const res = await fetch('/api/kru?cabang=kedai', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setDaftarKru(data.kru);
+      } catch (e) {
+        console.error("Gagal memuat data kru kedai", e);
+      } finally {
+        setLoadingKru(false);
+      }
+    };
+    fetchKru();
+  }, []);
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -142,8 +161,8 @@ export default function InputOmsetSaaS() {
           <div>
             <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nama Kasir</label>
             <select value={formData.namaKasir} onChange={(e) => setFormData({...formData, namaKasir: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
-              <option value="">-- Pilih Kasir --</option>
-              {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+              <option value="">{loadingKru ? 'Memuat nama kru...' : '-- Pilih Kasir --'}</option>
+              {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
             </select>
           </div>
 
@@ -260,7 +279,7 @@ export default function InputOmsetSaaS() {
             <span className="text-lg font-black text-emerald-700">Rp {totalOmsetRealtime.toLocaleString('id-ID')}</span>
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-400 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+          <button type="submit" disabled={isSubmitting || loadingKru} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-400 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
             {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
             {isSubmitting ? 'Mengunci Data...' : 'SIMPAN TOTAL PENJUALAN'}
           </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, CheckCircle2, ShoppingCart, Wallet } from 'lucide-react';
 
@@ -24,12 +24,12 @@ export default function PengeluaranKasSaaS() {
   const [metaData, setMetaData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     penginput: '',
-    kategori: 'Bar' // Default kategori sesuai instruksi
+    kategori: 'Bar' 
   });
 
   const [inputItem, setInputItem] = useState({
     idItem: '',
-    namaManual: '', // Akan dipakai jika memilih opsi "Lainnya"
+    namaManual: '', 
     kuantiti: '',
     satuan: '',
     hargaSatuan: ''
@@ -37,15 +37,30 @@ export default function PengeluaranKasSaaS() {
 
   const [daftarBelanja, setDaftarBelanja] = useState<BelanjaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  // Kunci nama kru
-  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
   
-  // Update Kategori sesuai instruksi
+  // STATE BARU: Penampung nama kru dinamis
+  const [daftarKru, setDaftarKru] = useState<any[]>([]);
+  const [loadingKru, setLoadingKru] = useState<boolean>(true);
+
+  // KODE DINAMIS: Ambil data kru Kedai yang aktif dari API
+  useEffect(() => {
+    const fetchKru = async () => {
+      try {
+        const res = await fetch('/api/kru?cabang=kedai', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setDaftarKru(data.kru);
+      } catch (e) {
+        console.error("Gagal memuat data kru kedai", e);
+      } finally {
+        setLoadingKru(false);
+      }
+    };
+    fetchKru();
+  }, []);
+  
   const daftarKategori = ["Bar", "Dapur", "Lain-lain"];
   const daftarSatuan = ["Pcs", "Pack", "Kg", "Liter", "Galon", "Ikat", "Dus", "Bal", "Ball", "Tabung", "Slop"];
 
-  // MASTER DATA: Barang yang rutin dibeli
   const masterBarangBelanja: MasterBelanja[] = [
     { id: "B-001", nama: "Es Batu Kristal", satuanDefault: "Ball" },
     { id: "B-002", nama: "Air Mineral (Galon)", satuanDefault: "Galon" },
@@ -58,7 +73,7 @@ export default function PengeluaranKasSaaS() {
     { id: "B-009", nama: "Sedotan (Straw)", satuanDefault: "Pack" },
     { id: "B-010", nama: "Susu Evaporasi (Dadakan)", satuanDefault: "Kaleng" },
     { id: "B-011", nama: "Biji Kopi Tambahan (Dadakan)", satuanDefault: "Kg" },
-    { id: "B-999", nama: "Lainnya (Tulis Manual)...", satuanDefault: "Pcs" }, // Opsi Fleksibel
+    { id: "B-999", nama: "Lainnya (Tulis Manual)...", satuanDefault: "Pcs" }, 
   ];
 
   const formatRupiah = (angka: string) => {
@@ -70,7 +85,6 @@ export default function PengeluaranKasSaaS() {
     return parseInt(teks.replace(/\./g, ''), 10) || 0;
   };
 
-  // Handler saat item dropdown dipilih agar otomatis mengganti satuan
   const handlePilihItem = (e: ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;
     const itemDitemukan = masterBarangBelanja.find(b => b.id === selectedId);
@@ -78,7 +92,7 @@ export default function PengeluaranKasSaaS() {
     setInputItem({
       ...inputItem,
       idItem: selectedId,
-      namaManual: '', // Reset jika sebelumnya nulis manual
+      namaManual: '', 
       satuan: itemDitemukan ? itemDitemukan.satuanDefault : 'Pcs'
     });
   };
@@ -88,7 +102,6 @@ export default function PengeluaranKasSaaS() {
     
     if (!inputItem.idItem) return alert("Pilih barang yang dibeli terlebih dahulu!");
     
-    // Tentukan nama akhir barang (apakah dari master atau dari ketikan manual)
     let namaAkhir = "";
     if (inputItem.idItem === "B-999") {
       if (!inputItem.namaManual) return alert("Harap ketik nama barang manual yang Anda beli!");
@@ -118,8 +131,6 @@ export default function PengeluaranKasSaaS() {
     };
 
     setDaftarBelanja([...daftarBelanja, itemBaru]);
-    
-    // Kembalikan inputan ke posisi bersih setelah ditambah ke keranjang
     setInputItem({ idItem: '', namaManual: '', kuantiti: '', satuan: 'Pcs', hargaSatuan: '' });
   };
 
@@ -133,22 +144,29 @@ export default function PengeluaranKasSaaS() {
 
     setIsSubmitting(true);
 
+    // KITA SESUAIKAN DENGAN STRUKTUR API MULTIPLE INPUT
+    // Ubah format data agar selaras dengan API Pengeluaran Kedai 
+    const payloadDaftarBelanja = daftarBelanja.map(item => ({
+      kategori: metaData.kategori,
+      keterangan: `${item.namaItem} (${item.kuantiti} ${item.satuan})`,
+      nominal: item.nominalAsli
+    }));
+
     try {
       const response = await fetch('/api/pengeluaran', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tanggal: metaData.tanggal,
-          penginput: metaData.penginput,
-          kategori: metaData.kategori,
-          daftarBelanja: daftarBelanja
+          namaKru: metaData.penginput, // Sesuaikan dengan key di backend API
+          daftarPengeluaran: payloadDaftarBelanja // Gunakan payload keranjang
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert(`✅ ${data.message}`);
+        alert(`✅ Pencatatan berhasil dikunci!`);
         setDaftarBelanja([]); 
       } else {
         alert(`❌ Gagal menyimpan: ${data.error}`);
@@ -191,8 +209,8 @@ export default function PengeluaranKasSaaS() {
             <div>
               <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Kru Penginput</label>
               <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
-                <option value="">-- Pilih --</option>
-                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+                <option value="">{loadingKru ? 'Memuat kru...' : '-- Pilih Kru --'}</option>
+                {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
               </select>
             </div>
           </div>
@@ -235,7 +253,7 @@ export default function PengeluaranKasSaaS() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <input type="number" placeholder="Qty" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
+            <input type="number" placeholder="Qty" step="any" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
             <select value={inputItem.satuan} onChange={(e) => setInputItem({...inputItem, satuan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-700 outline-none cursor-pointer">
               {daftarSatuan.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
