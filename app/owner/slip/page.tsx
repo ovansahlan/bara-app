@@ -93,11 +93,11 @@ export default function HRDSlipCenter() {
       if (btn) btn.style.display = 'flex';
     }
   };
-  
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 pb-24 font-sans p-4 flex flex-col items-center pt-8">
       
-      {/* HEADER NAVIGASI */}
+      {/* HEADER NAdsVIGASI */}
       <div className="w-full max-w-md flex items-center justify-between mb-6">
         <Link href="/owner" className="p-2.5 bg-slate-800 text-slate-400 rounded-full hover:text-white transition-colors">
           <ChevronLeft size={20} />
