@@ -11,13 +11,12 @@ export async function GET(request: Request) {
     if (!namaKru) return NextResponse.json({ error: 'Nama kru tidak valid.' }, { status: 400 });
 
     const today = new Date();
-    // Gunakan waktu lokal Jakarta
     const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     
     const month = String(localDate.getMonth() + 1).padStart(2, '0');
     const year = localDate.getFullYear();
     const prefixBulan = `${year}-${month}`;
-    const hariBerjalan = localDate.getDate(); // Tanggal hari ini (misal: 15)
+    const hariBerjalan = localDate.getDate(); 
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -35,7 +34,6 @@ export async function GET(request: Request) {
     let tepatWaktu = 0; let telat = 0; let prepDapur = 0; 
     let fullDay = 0; let izin = 0; let sakit = 0;
     
-    // Gunakan Set() agar kalau 1 hari dia absen 2x (pagi & malam), tetap dihitung 1 hari kerja
     const hariKerjaTercatat = new Set(); 
 
     rows.slice(1).forEach(row => {
@@ -45,9 +43,21 @@ export async function GET(request: Request) {
 
       if (timestamp.startsWith(prefixBulan) && nama === namaKru) {
         const dateOnly = timestamp.split(' ')[0];
-        hariKerjaTercatat.add(dateOnly); // Catat tanggal dia masuk
+        hariKerjaTercatat.add(dateOnly); 
 
-        const timeOnly = timestamp.split(' ')[1] || '23:59:59'; 
+        // =========================================================
+        // FIX: NORMALISASI JAM (Mencegah Google Sheets membuang angka 0 di depan)
+        // =========================================================
+        const timeRaw = timestamp.split(' ')[1] || '23:59:59'; 
+        const timeParts = timeRaw.split(':');
+        
+        // Memaksa (padStart) jam, menit, detik selalu berformat 2 digit (contoh: '9' jadi '09')
+        const h = (timeParts[0] || '23').padStart(2, '0');
+        const m = (timeParts[1] || '59').padStart(2, '0');
+        const s = (timeParts[2] || '59').padStart(2, '0');
+        const timeOnly = `${h}:${m}:${s}`; 
+        // =========================================================
+
         if (shift === 'Shift Pagi') {
           if (timeOnly <= '09:00:59') tepatWaktu++; else telat++;
         } else if (shift === 'Shift Malam') {
@@ -60,7 +70,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // RUMUS CERDAS: Total Hari Bulan Ini - Total Hari Dia Absen = Hari Libur / Alfa
     const totalHariKerja = hariKerjaTercatat.size;
     const hariKosong = Math.max(0, hariBerjalan - totalHariKerja);
 
