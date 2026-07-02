@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     // MENEMBAK NAMA TAB ASLI TANPA "DB_"
     const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:E' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:C' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:G' }).catch(() => ({ data: { values: [] } }))
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
 
-      const nominal = parseInt((row[4] || '0').toString().replace(/\D/g, ''), 10) || 0;
+      const nominal = parseInt((row[7] || '0').toString().replace(/\D/g, ''), 10) || 0;
 
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiPengeluaranBulanan += nominal;
