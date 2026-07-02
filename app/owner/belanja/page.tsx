@@ -171,7 +171,7 @@ export default function InputBelanjaOwner() {
               ))}
             </div>
 
-            <button type="button" onClick={handleSimpanAll} disabled={isSubmitting} className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
               {isSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
               SIMPAN SEMUA {daftarBelanja.length} ITEM BELANJA OWNER
             </button>
