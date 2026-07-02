@@ -49,7 +49,12 @@ export default function SlipGajiKru() {
     if (btn) btn.style.display = 'none';
 
     try {
-      const canvas = await html2canvas(element, { scale: 2 });
+      // SUNTIKAN KODE: useCORS true agar logo berhasil dirender ke PDF tanpa terkena block keamanan
+      const canvas = await html2canvas(element, { 
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+      });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
@@ -86,7 +91,15 @@ export default function SlipGajiKru() {
       <div className="w-full max-w-md bg-white p-6 rounded-t-xl shadow-2xl relative" ref={slipRef}>
         
         {/* KOP SURAT */}
-        <div className="text-center border-b-2 border-zinc-900 pb-5 mb-5 space-y-1">
+        <div className="text-center border-b-2 border-zinc-900 pb-5 mb-5 space-y-2">
+          {/* TAG LOGO BARU: Otomatis membaca file logo.png di folder public */}
+          <div className="w-16 h-16 mx-auto mb-1 relative flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="Logo Kopi Bara" 
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
           <h2 className="text-2xl font-black uppercase tracking-tight text-zinc-900">KEDAI KOPI BARA</h2>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dokumen Rahasia & Pribadi</p>
         </div>
