@@ -18,24 +18,26 @@ export default function SlipGajiKru() {
     const sesi = localStorage.getItem('kru_session');
     if (!sesi) {
       router.push('/kru/login');
-    } else {
-      const dataSesi = JSON.parse(sesi);
-      setProfilKru(dataSesi);
-      fetchSlipData(dataSesi.nama, dataSesi.cabang);
+      return;
     }
-  }, []);
 
-  const fetchSlipData = async (nama: string, cabang: string) => {
-    try {
-      const res = await fetch(`/api/kru/slip?nama=${nama}&cabang=${cabang}`);
-      const data = await res.json();
-      if (data.success) setSlipData(data.data);
-    } catch (e) {
-      console.error("Gagal menarik data slip", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const dataSesi = JSON.parse(sesi);
+    setProfilKru(dataSesi);
+
+    const fetchSlipData = async (nama: string, cabang: string) => {
+      try {
+        const res = await fetch(`/api/kru/slip?nama=${nama}&cabang=${cabang}`);
+        const data = await res.json();
+        if (data.success) setSlipData(data.data);
+      } catch (e) {
+        console.error("Gagal menarik data slip", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSlipData(dataSesi.nama, dataSesi.cabang);
+  }, [router]);
 
   const formatIDR = (val: number) => `Rp ${new Intl.NumberFormat('id-ID').format(val || 0)}`;
 
@@ -97,7 +99,7 @@ export default function SlipGajiKru() {
             {/* INFO KARYAWAN */}
             <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 text-xs font-medium space-y-2">
               <div className="flex justify-between"><span className="text-zinc-500">Nama Lengkap</span><span className="font-black text-zinc-900 uppercase">{slipData.nama}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500">Outlet</span><span className="font-black text-zinc-900 uppercase">{slipData.cabang}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Cabang Penempatan</span><span className="font-black text-zinc-900 uppercase">{slipData.cabang}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Periode Gaji</span><span className="font-bold text-indigo-600">{slipData.periode}</span></div>
             </div>
 
@@ -108,7 +110,6 @@ export default function SlipGajiKru() {
                 <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokok)}</span></div>
                 <div className="flex justify-between"><span>Bonus Target Omset</span><span>{formatIDR(slipData.bonusOmset)}</span></div>
                 <div className="flex justify-between"><span>Tunjangan Kinerja / Insentif</span><span>{formatIDR(slipData.tunjanganObjektif)}</span></div>
-                {/* BARIS OVERTIME BARU */}
                 <div className="flex justify-between"><span>Upah Lembur (Overtime)</span><span className="text-amber-600 font-bold">+{formatIDR(slipData.uangOvertime)}</span></div>
               </div>
               <div className="flex justify-between text-xs font-black text-emerald-700 mt-2 pt-2 border-t border-dashed border-zinc-300">
@@ -131,7 +132,7 @@ export default function SlipGajiKru() {
               <p className="text-2xl font-black text-emerald-400 relative z-10">{formatIDR(slipData.takeHomePay)}</p>
             </div>
 
-            {/* KOTAK EVALUASI / CATATAN OWNER BARU */}
+            {/* KOTAK EVALUASI / CATATAN OWNER */}
             {slipData.catatanOwner && (
               <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-1 relative overflow-hidden">
                 <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[10px] uppercase tracking-wider">
@@ -139,7 +140,7 @@ export default function SlipGajiKru() {
                   <span>Catatan & Evaluasi Owner</span>
                 </div>
                 <p className="text-xs text-zinc-600 leading-relaxed font-medium italic">
-                  "{slipData.catatanOwner}"
+                  &ldquo;{slipData.catatanOwner}&rdquo;
                 </p>
               </div>
             )}
