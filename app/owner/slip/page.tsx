@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Award, DownloadCloud, ShieldCheck, MessageSquare, Users } from 'lucide-react';
+import { ChevronLeft, DownloadCloud, ShieldCheck, MessageSquare, Users } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -65,14 +65,24 @@ export default function HRDSlipCenter() {
     if (btn) btn.style.display = 'none';
 
     try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, allowTaint: true });
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true, 
+        allowTaint: true 
+      });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
+      // FIX TINGGI DINAMIS: Kertas PDF otomatis memanjang mengikuti tinggi bodi konten agar tidak terpotong
+      const imgProps = jsPDF.prototype.getImageProperties(imgData);
+      const pdfWidth = 210; // Lebar A4 standar
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
+      const pdf = new jsPDF({ 
+        orientation: 'portrait', 
+        unit: 'mm', 
+        format: [pdfWidth, pdfHeight] 
+      });
+      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Slip_HRD_${slipData.nama}_${slipData.periode}.pdf`);
     } catch (error) {
@@ -117,13 +127,17 @@ export default function HRDSlipCenter() {
           <div className="h-48 flex items-center justify-center text-xs font-bold text-zinc-400 animate-pulse">Menarik data dari keuangan...</div>
         ) : slipData ? (
           <div ref={slipRef} className="bg-white p-2">
-            {/* KOP SURAT */}
-            <div className="text-center border-b-2 border-zinc-900 pb-5 mb-5 space-y-2">
-              <div className="w-16 h-16 mx-auto mb-1 relative flex items-center justify-center">
-                <img src="/logo.png" alt="Logo Kopi Bara" className="max-w-full max-h-full object-contain" />
+            
+            {/* FIX KOP SURAT: TEKS DIHAPUS, LOGO JADI MASKOT BESAR */}
+            <div className="text-center border-b-2 border-zinc-900 pb-4 mb-5 flex flex-col items-center justify-center">
+              <div className="w-full h-24 relative flex items-center justify-center mb-2">
+                <img 
+                  src="/logo.png" 
+                  alt="Logo Kopi Bara" 
+                  className="max-w-[240px] max-h-full object-contain" 
+                />
               </div>
-              <h2 className="text-2xl font-black uppercase tracking-tight text-zinc-900">KEDAI KOPI BARA</h2>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dokumen Rahasia &amp; Pribadi (Salinan HRD)</p>
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Dokumen Rahasia &amp; Pribadi (Salinan HRD)</p>
             </div>
 
             <div className="space-y-6">
@@ -182,7 +196,7 @@ export default function HRDSlipCenter() {
         )}
       </div>
 
-      {/* TOMBOL DOWNLOAD (Hanya muncul jika data slip sudah siap) */}
+      {/* TOMBOL DOWNLOAD */}
       {slipData && !loadingSlip && (
         <div className="w-full max-w-md mt-2">
           <button 

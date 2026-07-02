@@ -49,19 +49,24 @@ export default function SlipGajiKru() {
     if (btn) btn.style.display = 'none';
 
     try {
-      // SUNTIKAN KODE: useCORS true agar logo berhasil dirender ke PDF tanpa terkena block keamanan
       const canvas = await html2canvas(element, { 
         scale: 2,
         useCORS: true,
         allowTaint: true
       });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // SOLUSI PINTAR: Ukuran tinggi kertas PDF dinamis mengikuti tinggi asli slip agar tidak kepotong
+      const imgProps = jsPDF.prototype.getImageProperties(imgData);
+      const pdfWidth = 210; // Lebar standar A4 (mm)
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width; // Tinggi proporsional otomatis
 
+      const pdf = new jsPDF({ 
+        orientation: 'portrait', 
+        unit: 'mm', 
+        format: [pdfWidth, pdfHeight] // Kertas otomatis memanjang sesuai isi nota
+      });
+      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Slip_Gaji_${profilKru.nama}_${slipData.periode}.pdf`);
     } catch (error) {
@@ -90,18 +95,16 @@ export default function SlipGajiKru() {
       {/* KERTAS SLIP GAJI (Target Render PDF) */}
       <div className="w-full max-w-md bg-white p-6 rounded-t-xl shadow-2xl relative" ref={slipRef}>
         
-        {/* KOP SURAT */}
-        <div className="text-center border-b-2 border-zinc-900 pb-5 mb-5 space-y-2">
-          {/* TAG LOGO BARU: Otomatis membaca file logo.png di folder public */}
-          <div className="w-16 h-16 mx-auto mb-1 relative flex items-center justify-center">
+        {/* KOP SURAT BARU: JUDUL TEKS DIHAPUS, LOGO DIPERBESAR */}
+        <div className="text-center border-b-2 border-zinc-900 pb-4 mb-5 flex flex-col items-center justify-center">
+          <div className="w-full h-24 relative flex items-center justify-center mb-2">
             <img 
               src="/logo.png" 
               alt="Logo Kopi Bara" 
-              className="max-w-full max-h-full object-contain"
+              className="max-w-[240px] max-h-full object-contain"
             />
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tight text-zinc-900">KEDAI KOPI BARA</h2>
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dokumen Rahasia & Pribadi</p>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Dokumen Rahasia &amp; Pribadi</p>
         </div>
 
         {loading ? (
@@ -120,7 +123,7 @@ export default function SlipGajiKru() {
             <div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2 border-b border-emerald-100 pb-1">Penerimaan (Pendapatan)</h3>
               <div className="space-y-2 text-xs font-medium">
-                <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokok)}</span></div>
+                <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokop || slipData.gajiPokok)}</span></div>
                 <div className="flex justify-between"><span>Bonus Target Omset</span><span>{formatIDR(slipData.bonusOmset)}</span></div>
                 <div className="flex justify-between"><span>Tunjangan Kinerja / Insentif</span><span>{formatIDR(slipData.tunjanganObjektif)}</span></div>
                 <div className="flex justify-between"><span>Upah Lembur (Overtime)</span><span className="text-amber-600 font-bold">+{formatIDR(slipData.uangOvertime)}</span></div>
@@ -150,7 +153,7 @@ export default function SlipGajiKru() {
               <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-1 relative overflow-hidden">
                 <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[10px] uppercase tracking-wider">
                   <MessageSquare size={12} />
-                  <span>Catatan & Evaluasi Owner</span>
+                  <span>Catatan &amp; Evaluasi Owner</span>
                 </div>
                 <p className="text-xs text-zinc-600 leading-relaxed font-medium italic">
                   &ldquo;{slipData.catatanOwner}&rdquo;
