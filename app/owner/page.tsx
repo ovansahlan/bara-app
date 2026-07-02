@@ -104,7 +104,26 @@ export default function DashboardOwner() {
             <span>Gross - Kru - Owner - HPP</span>
           </div>
         </div>
-
+{/* --- TAMBAHKAN KODE INI DI BAWAHNYA --- */}
+      {/* KHUSUS POV OWNER (KONSOL EVALUASI) */}
+      <div className="max-w-md mx-auto px-5 mt-8 pt-5 border-t border-zinc-200">
+        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2.5">Owner Panel Only</p>
+        <Link href="/owner/evaluasi" className="bg-slate-800 p-4 rounded-3xl flex items-center justify-between text-slate-100 shadow-lg hover:bg-slate-850 active:scale-95 transition-all border border-slate-700">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 bg-slate-700 text-indigo-400 rounded-2xl shadow-inner">
+              <Award size={20} />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Input Insentif & Overtime</p>
+              <p className="text-sm font-black tracking-wide">Evaluasi Kinerja Tim</p>
+            </div>
+          </div>
+          <div className="text-xs font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-xl">
+            Buka
+          </div>
+        </Link>
+      </div>
+      {/* ------------------------------------------------------- */}
         {/* TOMBOL LINK INPUT BELANJA OWNER */}
         <Link href="/owner/belanja" className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-5 rounded-3xl flex justify-between items-center hover:shadow-md transition-all group">
           <div className="flex items-center gap-4">
