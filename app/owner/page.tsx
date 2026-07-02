@@ -211,7 +211,7 @@ export default function DashboardOwner() {
         )}
 
         {/* ================= VIEW LAPORAN GEROBAK ================= */}
-        {viewCabang === 'getobak' || viewCabang === 'gerobak' ? (data && (
+        {viewCabang === 'gerobak' && data && (
           <div className="space-y-3 animate-in slide-in-from-bottom-2 duration-300">
             <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-xs flex items-center justify-between">
               <div>
@@ -262,7 +262,7 @@ export default function DashboardOwner() {
               </div>
             </div>
           </div>
-        )) : null}
+        )}
 
         {/* METRICS GUDANG TERPUSAT */}
         <div className="grid grid-cols-2 gap-3">
