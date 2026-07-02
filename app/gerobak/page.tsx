@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, TrendingUp, Wallet, Store, ArrowUpRight, Landmark, RefreshCw } from 'lucide-react';
+import { ChevronLeft, TrendingUp, Wallet, Store, ArrowUpRight, Landmark, RefreshCw,MessageCircle } from 'lucide-react';
 
 export default function PortalGerobak() {
   const [omsetBulanan, setOmsetBulanan] = useState<number>(0);
@@ -102,6 +102,18 @@ export default function PortalGerobak() {
               <p className="text-base font-black text-zinc-800">Tarik Uang Kasbon</p>
             </div>
             <ArrowUpRight size={18} className="text-zinc-300 group-hover:text-amber-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          </Link>
+
+          {/* TAMBAHKAN TOMBOL LAPORAN WA GEROBAK DI SINI */}
+          <Link href="/gerobak/report" className="bg-white border-2 border-indigo-50 p-4 rounded-3xl flex items-center gap-4 hover:border-indigo-200 shadow-sm transition-all group relative overflow-hidden mt-3">
+            <div className="p-3.5 bg-indigo-50 text-indigo-500 rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+              <MessageCircle size={24} strokeWidth={2.5} />
+            </div>
+            <div className="z-10 flex-1">
+              <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-0.5">Closing Shift</p>
+              <p className="text-base font-black text-zinc-800">Laporan WhatsApp</p>
+            </div>
+            <ArrowUpRight size={18} className="text-zinc-300 group-hover:text-indigo-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
           </Link>
 
         </div>
