@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
-    }
+    if (!spreadsheetId || !clientEmail || !privateKey) return NextResponse.json({ error: 'Error' }, { status: 500 });
 
     const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
@@ -26,28 +26,36 @@ export async function GET(request: Request) {
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' })
     ]);
 
-    const thresholdMap: Record<string, number> = {};
+    const parseRupiah = (val: any) => {
+      if (!val) return 0;
+      let str = val.toString().trim();
+      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
+      return parseInt(str.replace(/\D/g, ''), 10) || 0;
+    };
+    const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
+
+    const kalkulasiGudang: Record<string, { nama: string; totalQtyIn: number; totalCostIn: number; totalQtyOut: number; batasAman: number }> = {};
+    
     (resMasterProduct.data.values || []).slice(1).forEach(row => {
       const id = row[0] ? row[0].toString().trim() : '';
+      const nama = row[1] || 'Item Tidak Dikenal';
       const batas = parseInt(row[4] || '10', 10);
-      if (id) thresholdMap[id] = batas;
+      if (id) kalkulasiGudang[id] = { nama, totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0, batasAman: isNaN(batas) ? 10 : batas };
     });
-
-    const kalkulasiGudang: Record<string, { nama: string; totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
 
     (resStokIn.data.values || []).slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
-      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { nama: row[2] || 'Item', totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
-      kalkulasiGudang[idStr].totalQtyIn += parseFloat(row[3] || '0') || 0;
-      kalkulasiGudang[idStr].totalCostIn += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
+      if (!idStr || !kalkulasiGudang[idStr]) return;
+      
+      kalkulasiGudang[idStr].totalQtyIn += parseQty(row[3]);
+      kalkulasiGudang[idStr].totalCostIn += parseRupiah(row[5]);
     });
 
     (resStokOut.data.values || []).slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
-      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { nama: row[2] || 'Item', totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
-      kalkulasiGudang[idStr].totalQtyOut += parseFloat(row[3] || '0') || 0;
+      if (!idStr || !kalkulasiGudang[idStr]) return;
+      
+      kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
     });
 
     let totalAset = 0;
@@ -61,7 +69,6 @@ export async function GET(request: Request) {
       const nilaiRupiahAset = sisaStok > 0 ? Math.round(sisaStok * hrgRata2) : 0;
 
       totalAset += nilaiRupiahAset;
-      const batasAman = thresholdMap[id] !== undefined ? thresholdMap[id] : 10;
 
       const detail = {
         id,
@@ -70,12 +77,12 @@ export async function GET(request: Request) {
         keluar: dataItem.totalQtyOut,
         sisa: sisaStok,
         nilai: nilaiRupiahAset,
-        batasAman
+        batasAman: dataItem.batasAman
       };
 
       items.push(detail);
 
-      if (sisaStok <= batasAman && (dataItem.totalQtyIn > 0 || sisaStok > 0)) {
+      if (sisaStok <= dataItem.batasAman && (dataItem.totalQtyIn > 0 || sisaStok > 0)) {
         stockAlerts.push(detail);
       }
     });
@@ -83,7 +90,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, totalAset, items, stockAlerts });
 
   } catch (error: any) {
-    console.error(error);
-    return NextResponse.json({ error: 'Gagal memproses asset.' }, { status: 500 });
+    return NextResponse.json({ error: 'Error' }, { status: 500 });
   }
 }
