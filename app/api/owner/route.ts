@@ -50,7 +50,6 @@ export async function GET(request: Request) {
     let totalPengeluaranKruBulanIni = 0;
     let totalBelanjaOwnerBulanIni = 0;
 
-    // 1. Omset
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -62,7 +61,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. Pengeluaran Kru
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -70,7 +68,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Belanja Owner
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -78,7 +75,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. Moving Average Gudang + FIX PEMBULATAN MATEMATIKA
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
 
     const rowsIn = resStokIn.data.values || [];
@@ -103,13 +99,9 @@ export async function GET(request: Request) {
       const item = kalkulasiGudang[id];
       const hrgRata2 = item.totalQtyIn > 0 ? (item.totalCostIn / item.totalQtyIn) : 0;
       const sisaStok = item.totalQtyIn - item.totalQtyOut;
-      if (sisaStok > 0) {
-        // KODE SAKTI: Membulatkan perkiraan pecahan ke rupiah utuh terdekat
-        totalNilaiAsetGudangAktif += Math.round(sisaStok * hrgRata2);
-      }
+      if (sisaStok > 0) totalNilaiAsetGudangAktif += Math.round(sisaStok * hrgRata2);
     });
 
-    // Membulatkan hasil kalkulasi akhir agar aman dari sisa pecahan mikro JavaScript
     totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
     const sisaKasGudangFisik = Math.round(8000000 - totalNilaiAsetGudangAktif);
     const sisaSaldoBersihBara = Math.round(omsetBulanIni.total - totalPengeluaranKruBulanIni - totalBelanjaOwnerBulanIni);
@@ -138,22 +130,56 @@ export async function GET(request: Request) {
   }
 }
 
+// LOGIKA POST BARU UNTUK MULTI-INPUT BELANJA OWNER
 export async function POST(request: Request) {
-  // ... fungsi POST Anda di bawahnya tetap biarkan sama
   try {
     const body = await request.json();
-    const { tanggal, kategori, keterangan, nominal } = body;
+    const { tanggal, daftarBelanja } = body;
+
+    if (!daftarBelanja || !Array.isArray(daftarBelanja) || daftarBelanja.length === 0) {
+      return NextResponse.json({ error: 'Daftar belanja masih kosong.' }, { status: 400 });
+    }
+
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-    if (!spreadsheetId || !clientEmail || !privateKey) return NextResponse.json({ error: 'Error' }, { status: 500 });
+
+    if (!spreadsheetId || !clientEmail || !privateKey) {
+      return NextResponse.json({ error: 'Kredensial server tidak lengkap.' }, { status: 500 });
+    }
+
     const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({ email: clientEmail, key: formattedKey, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: formattedKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
     const sheets = google.sheets({ version: 'v4', auth });
+
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
-    const dataBaris = [formatTanggalID, kategori, keterangan, nominal];
-    await sheets.spreadsheets.values.append({ spreadsheetId, range: 'Belanja_Owner!A:D', valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS', requestBody: { values: [dataBaris] } });
-    return NextResponse.json({ success: true, message: 'Berhasil' });
-  } catch (e) { return NextResponse.json({ error: 'Error' }, { status: 500 }); }
+
+    // Susun seluruh item menjadi array multi-dimensi untuk ditembak sekaligus
+    const kumpulanBarisBaru = daftarBelanja.map((item: any) => [
+      formatTanggalID, 
+      item.kategori, 
+      item.keterangan, 
+      item.nominal
+    ]);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'Belanja_Owner!A:D',
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: kumpulanBarisBaru },
+    });
+
+    return NextResponse.json({ success: true, message: `${daftarBelanja.length} catatan belanja owner berhasil dikunci!` });
+
+  } catch (error: any) {
+    console.error('API Owner POST Error:', error);
+    return NextResponse.json({ error: 'Gagal menyimpan data.' }, { status: 500 });
+  }
 }
