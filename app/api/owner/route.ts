@@ -29,10 +29,13 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const [resPenjualan, resPengeluaran, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
+    // TARIK SEMUA TAB TERMASUK CABANG GEROBAK
+    const [resPenjualan, resPengeluaran, resPenjualanGrb, resPengeluaranGrb, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:D' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:E' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
@@ -43,40 +46,65 @@ export async function GET(request: Request) {
       if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
       return parseInt(str.replace(/\D/g, ''), 10) || 0;
     };
-    
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    const omsetBulanIni = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
-    let totalPengeluaranKruBulanIni = 0;
-    let totalBelanjaOwnerBulanIni = 0;
+    // Inisialisasi Penampung Finansial Terpisah
+    const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
+    const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
 
+    // 1. KEDAI UTAMA - OMSET BULANAN
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        omsetBulanIni.tunai += parseRupiah(row[3]);
-        omsetBulanIni.qris += parseRupiah(row[4]);
-        omsetBulanIni.edc += parseRupiah(row[5]);
-        omsetBulanIni.grab += parseRupiah(row[6]);
-        omsetBulanIni.total += parseRupiah(row[7]);
+        kedai.omset += parseRupiah(row[7]);
       }
     });
 
+    // 2. KEDAI UTAMA - PENGELUARAN KRU
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        totalPengeluaranKruBulanIni += parseRupiah(row[7]);
+        kedai.pengeluaranKru += parseRupiah(row[7]);
       }
     });
 
+    // 3. GEROBAK - OMSET BULANAN
+    (resPenjualanGrb.data.values || []).slice(1).forEach(row => {
+      const tgl = row[0] ? row[0].toString().trim() : '';
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
+        gerobak.omset += parseRupiah(row[7]);
+      }
+    });
+
+    // 4. GEROBAK - PENGELUARAN KRU
+    (resPengeluaranGrb.data.values || []).slice(1).forEach(row => {
+      const tgl = row[0] ? row[0].toString().trim() : '';
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
+        gerobak.pengeluaranKru += parseRupiah(row[7]);
+      }
+    });
+
+    // 5. BREAKDOWN TAB BELANJA OWNER BERDASARKAN KOLOM E (PERUNTUKAN)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        totalBelanjaOwnerBulanIni += parseRupiah(row[3]);
+        const nominal = parseRupiah(row[3]);
+        const peruntukan = row[4] ? row[4].toString().trim().toLowerCase() : 'kedai';
+
+        if (peruntukan === 'gerobak') {
+          gerobak.belanjaOwner += nominal;
+        } else {
+          kedai.belanjaOwner += nominal; // Default lari ke kedai utama jika kosong
+        }
       }
     });
 
-    const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+    // Hitung Laba Bersih Masing-masing
+    kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner);
+    gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner);
 
+    // 6. PERHITUNGAN REAL-TIME GUDANG LOGISTIK (TETAP TERPUSAT)
+    const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     const rowsIn = resStokIn.data.values || [];
     rowsIn.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
@@ -102,27 +130,21 @@ export async function GET(request: Request) {
       if (sisaStok > 0) totalNilaiAsetGudangAktif += Math.round(sisaStok * hrgRata2);
     });
 
-    totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
     const sisaKasGudangFisik = Math.round(8000000 - totalNilaiAsetGudangAktif);
-    const sisaSaldoBersihBara = Math.round(omsetBulanIni.total - totalPengeluaranKruBulanIni - totalBelanjaOwnerBulanIni);
-
     const stokMasukFiltered = rowsIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
     const stokKeluarFiltered = rowsOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
 
-    const mutasiMasuk = stokMasukFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] }));
-    const mutasiKeluar = stokKeluarFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }));
-
     return NextResponse.json({
-      metrics: {
-        omset: omsetBulanIni, 
-        pengeluaranKru: totalPengeluaranKruBulanIni,
-        belanjaOwner: totalBelanjaOwnerBulanIni,
-        sisaSaldo: sisaSaldoBersihBara,
-        saldoGudangKas: sisaKasGudangFisik,      
-        nilaiAsetGudang: totalNilaiAsetGudangAktif 
+      success: true,
+      kedai,
+      gerobak,
+      totalLabaGabungan: Math.round(kedai.labaBersih + gerobak.labaBersih),
+      metricsGudang: {
+        nilaiAsetGudang: totalNilaiAsetGudangAktif,
+        saldoGudangKas: sisaKasGudangFisik
       },
-      stokMasuk: mutasiMasuk,
-      stokKeluar: mutasiKeluar
+      stokMasuk: stokMasukFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] })),
+      stokKeluar: stokKeluarFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }))
     });
 
   } catch (error: any) {
@@ -130,7 +152,6 @@ export async function GET(request: Request) {
   }
 }
 
-// LOGIKA POST BARU UNTUK MULTI-INPUT BELANJA OWNER
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -160,26 +181,27 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
-    // Susun seluruh item menjadi array multi-dimensi untuk ditembak sekaligus
+    // FORMAT BARIS BARU SEKARANG ADA 5 KOLOM:
+    // Tanggal (A) | Kategori (B) | Keterangan (C) | Nominal (D) | Peruntukan (E)
     const kumpulanBarisBaru = daftarBelanja.map((item: any) => [
       formatTanggalID, 
       item.kategori, 
       item.keterangan, 
-      item.nominal
+      item.nominal,
+      item.peruntukan || 'Kedai' // Nilai: 'Kedai' atau 'Gerobak'
     ]);
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Belanja_Owner!A:D',
+      range: 'Belanja_Owner!A:E',
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: kumpulanBarisBaru },
+      requestBody: { values: [kumpulanBarisBaru] },
     });
 
-    return NextResponse.json({ success: true, message: `${daftarBelanja.length} catatan belanja owner berhasil dikunci!` });
+    return NextResponse.json({ success: true, message: 'Catatan belanja terkelompok berhasil disimpan!' });
 
   } catch (error: any) {
-    console.error('API Owner POST Error:', error);
-    return NextResponse.json({ error: 'Gagal menyimpan data.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal mengunci data.' }, { status: 500 });
   }
 }

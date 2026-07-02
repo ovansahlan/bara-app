@@ -2,30 +2,29 @@
 
 import React, { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, CheckCircle2, RefreshCw, Wallet, HelpCircle, Plus, Trash2, ListChecks } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, RefreshCw, Wallet, HelpCircle, Plus, Trash2, ListChecks, Store } from 'lucide-react';
 
 interface ItemBelanja {
   kategori: string;
   keterangan: string;
   nominal: number;
+  peruntukan: string;
 }
 
 export default function InputBelanjaOwner() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
-  
-  // State untuk menampung daftar keranjang (multi-input)
   const [daftarBelanja, setDaftarBelanja] = useState<ItemBelanja[]>([]);
 
-  // State untuk form input individual
   const [inputItem, setInputItem] = useState({
     kategori: 'Operational',
     keterangan: '',
-    nominal: ''
+    nominal: '',
+    peruntukan: 'Kedai' // Default untuk Kedai Utama
   });
 
-  const daftarKategori = ["Operational", "Bar", "Dapur", "Gerobak", "Pelangi"];
+  const daftarKategori = ["Operational", "Bar", "Dapur",];
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -34,7 +33,6 @@ export default function InputBelanjaOwner() {
 
   const bersihAngka = (teks: string) => parseInt(teks.replace(/\./g, ''), 10) || 0;
 
-  // 1. Tambah ke Draft
   const handleTambahKeDaftar = (e: FormEvent) => {
     e.preventDefault();
     const nominalMurni = bersihAngka(inputItem.nominal);
@@ -44,21 +42,18 @@ export default function InputBelanjaOwner() {
     const itemBaru: ItemBelanja = {
       kategori: inputItem.kategori,
       keterangan: inputItem.keterangan,
-      nominal: nominalMurni
+      nominal: nominalMurni,
+      peruntukan: inputItem.peruntukan
     };
 
     setDaftarBelanja([...daftarBelanja, itemBaru]);
-    
-    // Kosongkan form input setelah masuk keranjang, biarkan kategori tetap sama
-    setInputItem({ ...inputItem, keterangan: '', nominal: '' });
+    setInputItem({ ...inputItem, keterangan: '', nominal: '' }); // Reset input teks
   };
 
-  // 2. Hapus dari Draft
   const hapusItemBelanja = (index: number) => {
     setDaftarBelanja(daftarBelanja.filter((_, i) => i !== index));
   };
 
-  // 3. Simpan Semua ke Server
   const handleSimpanSemua = async () => {
     if (daftarBelanja.length === 0) return alert("Daftar belanja masih kosong!");
     setIsSubmitting(true);
@@ -67,14 +62,11 @@ export default function InputBelanjaOwner() {
       const response = await fetch('/api/owner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tanggal: tanggal,
-          daftarBelanja: daftarBelanja
-        }),
+        body: JSON.stringify({ tanggal, daftarBelanja }),
       });
 
       if (response.ok) {
-        alert("✅ Seluruh data belanja owner berhasil dikunci ke spreadsheet!");
+        alert("✅ Seluruh alokasi dana belanja cabang berhasil dikunci!");
         setDaftarBelanja([]);
         router.push('/owner'); 
       } else {
@@ -82,13 +74,10 @@ export default function InputBelanjaOwner() {
       }
     } catch (err) {
       console.error(err);
-      alert("❌ Terjadi kendala jaringan.");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const totalNilaiBelanja = daftarBelanja.reduce((sum, item) => sum + item.nominal, 0);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
@@ -106,28 +95,37 @@ export default function InputBelanjaOwner() {
       </div>
 
       <div className="max-w-md mx-auto px-4 mt-6 space-y-4">
-        
-        {/* INPUT TANGGAL (METADATA UTAMA) */}
         <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs">
           <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal Transaksi</label>
           <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" required />
         </div>
 
-        {/* FORM INPUT DRAFT */}
+        {/* INPUT FORM DRAFT */}
         <form onSubmit={handleTambahKeDaftar} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-500"></div>
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Catat Item Belanja Baru</span>
 
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Kategori</label>
-            <select value={inputItem.kategori} onChange={(e) => setInputItem({...inputItem, kategori: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
-              {daftarKategori.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Kategori</label>
+              <select value={inputItem.kategori} onChange={(e) => setInputItem({...inputItem, kategori: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
+                {daftarKategori.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div>
+              {/* DROPDOWN BARU: ALOKASI PERUNTUKAN USAHA */}
+              <label className="block text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
+                <Store size={10} /> Alokasi Cabang
+              </label>
+              <select value={inputItem.peruntukan} onChange={(e) => setInputItem({...inputItem, peruntukan: e.target.value})} className="w-full p-2.5 bg-indigo-50/60 border border-indigo-200 rounded-xl text-xs font-black text-indigo-950 outline-none cursor-pointer" required>
+                <option value="Kedai">Kedai Utama</option>
+                <option value="Gerobak">Cabang Gerobak</option>
+              </select>
+            </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Keterangan Detail Belanja</label>
-            <input type="text" placeholder="Contoh: Pembelian Neon Box / Biji Kopi" value={inputItem.keterangan} onChange={(e) => setInputItem({...inputItem, keterangan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
+            <input type="text" placeholder="Contoh: Cup Sealer Gerobak / Bahan Sirup" value={inputItem.keterangan} onChange={(e) => setInputItem({...inputItem, keterangan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
           </div>
 
           <div className="pt-2 border-t border-zinc-100">
@@ -146,14 +144,13 @@ export default function InputBelanjaOwner() {
           </button>
         </form>
 
-        {/* AREA KERANJANG (TAMPIL JIKA ADA ISINYA) */}
+        {/* LIST DRAFT KERANJANG */}
         {daftarBelanja.length > 0 && (
-          <div className="bg-zinc-900 p-5 rounded-3xl border border-zinc-800 shadow-md text-white space-y-4">
+          <div className="bg-zinc-900 p-5 rounded-3xl border border-zinc-800 text-white space-y-4 shadow-xl">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                <ListChecks size={12} /> Daftar Belanja
+                <ListChecks size={12} /> Daftar Keranjang Belanja
               </span>
-              <span className="text-sm font-black text-amber-400">Total: Rp {totalNilaiBelanja.toLocaleString('id-ID')}</span>
             </div>
 
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -161,29 +158,25 @@ export default function InputBelanjaOwner() {
                 <div key={idx} className="bg-zinc-800/90 p-3 rounded-xl border border-zinc-700/60 text-xs flex justify-between items-center">
                   <div>
                     <h4 className="font-bold text-white capitalize">{item.keterangan}</h4>
-                    <p className="text-[10px] text-zinc-400 mt-1 font-medium bg-zinc-700/50 w-fit px-1.5 py-0.5 rounded">
-                      {item.kategori}
-                    </p>
+                    <div className="flex gap-1.5 mt-1">
+                      <span className="text-[9px] text-zinc-400 font-bold bg-zinc-700/50 px-1.5 py-0.5 rounded uppercase">{item.kategori}</span>
+                      <span className="text-[9px] text-amber-400 font-black bg-amber-950/40 border border-amber-900/40 px-1.5 py-0.5 rounded uppercase">🎯 {item.peruntukan}</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-bold text-zinc-200">Rp {item.nominal.toLocaleString('id-ID')}</span>
-                    <button type="button" onClick={() => hapusItemBelanja(idx)} className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                    <button type="button" onClick={() => hapusItemBelanja(idx)} className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className={`w-full py-4 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${
-                isSubmitting ? 'bg-zinc-700 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700'
-              }`}
-            >
-              <CheckCircle2 size={14} /> {isSubmitting ? 'Mengirim Data...' : `SIMPAN SEMUA ${daftarBelanja.length} ITEM BELANJA`}
+            <button type="button" onClick={handleSimpanAll} disabled={isSubmitting} className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+              {isSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              SIMPAN SEMUA {daftarBelanja.length} ITEM BELANJA OWNER
             </button>
           </div>
         )}
-
       </div>
     </div>
   );

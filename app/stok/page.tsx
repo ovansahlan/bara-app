@@ -41,7 +41,7 @@ export default function ManajemenStokSaaS() {
     hargaBeliSatuan: ''
   });
 
-  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu"];
+  const daftarKru = ["Chika", "Nugye", "Diska", "Ibnu","Novan"];
   const daftarLokasiTujuan = ["Kedai Utama", "Gerobak"]; 
   const daftarKeteranganOut = ["Bahan Baku Bar", "Bahan Baku Dapur", "Kemasan / Packaging", "Bahan Rusak / Kadaluwarsa", "Lainnya"];
 
