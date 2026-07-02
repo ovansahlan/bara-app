@@ -68,7 +68,7 @@ export default function HRDSlipCenter() {
       const canvas = await html2canvas(element, { 
         scale: 2,
         useCORS: true,
-        allowTaint: true
+        
       });
       const imgData = canvas.toDataURL('image/png');
       
@@ -136,6 +136,7 @@ export default function HRDSlipCenter() {
                 <img 
                   src="/logo.png" 
                   alt="Logo Kopi Bara" 
+                  crossOrigin="anonymous"
                   className="max-w-[240px] max-h-full object-contain" 
                 />
               </div>
