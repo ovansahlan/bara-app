@@ -85,7 +85,7 @@ export default function HRDSlipCenter() {
       });
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Slip_Gaji_${profilKru.nama}_${slipData.periode}.pdf`);
+      pdf.save(`Slip_Gaji_${slipData.nama}_${slipData.periode}.pdf`);
     } catch (error) {
       console.error(error);
       alert("Gagal men-download PDF.");
