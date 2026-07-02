@@ -140,7 +140,7 @@ export default function SlipGajiKru() {
         )}
       </div>
 
-      {/* TOMBOL DOWNLOAD (Nempel di bawah kertas) */}
+      {/* TOMBOL DOWNLOAD (Nempel di bawah kersitas) */}
       <div className="w-full max-w-md mt-2">
         <button 
           id="btn-download"
