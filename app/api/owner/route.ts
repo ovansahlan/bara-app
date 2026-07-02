@@ -3,7 +3,6 @@ import { google } from 'googleapis';
 
 export const dynamic = 'force-dynamic';
 
-// 1. FUNGSI GET: Memantau & Memilah Finansial Multi-Cabang (Aman dari desimal panjang)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -49,61 +48,43 @@ export async function GET(request: Request) {
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
-    const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
+    const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[] };
+    const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[] };
 
-    // A. Kedai Utama Omset
+    // 1-5. Hitung Finansial (Kedai & Gerobak)
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        kedai.omset += parseRupiah(row[7]);
-      }
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) kedai.omset += parseRupiah(row[7]);
     });
-
-    // B. Kedai Utama Pengeluaran Kru
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        kedai.pengeluaranKru += parseRupiah(row[7]);
-      }
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) kedai.pengeluaranKru += parseRupiah(row[7]);
     });
-
-    // C. Cabang Gerobak Omset
     (resPenjualanGrb.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        gerobak.omset += parseRupiah(row[7]);
-      }
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) gerobak.omset += parseRupiah(row[7]);
     });
-
-    // D. Cabang Gerobak Pengeluaran Kru
     (resPengeluaranGrb.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        gerobak.pengeluaranKru += parseRupiah(row[7]);
-      }
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) gerobak.pengeluaranKru += parseRupiah(row[7]);
     });
-
-    // E. Belanja Dana Owner (Breakdown Berdasarkan Kolom E)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        const nominal = parseRupiah(row[3]);
         const peruntukan = row[4] ? row[4].toString().trim().toLowerCase() : 'kedai';
-
-        if (peruntukan === 'gerobak') {
-          gerobak.belanjaOwner += nominal;
-        } else {
-          kedai.belanjaOwner += nominal;
-        }
+        if (peruntukan === 'gerobak') gerobak.belanjaOwner += parseRupiah(row[3]);
+        else kedai.belanjaOwner += parseRupiah(row[3]);
       }
     });
 
     kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner);
     gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner);
 
-    // F. Gudang Logistik Terpusat
+    // 6. GUDANG & REKAP PEMAKAIAN PER CABANG BULAN INI
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+    const rekapPakaiKedai: Record<string, { nama: string; qty: number }> = {};
+    const rekapPakaiGerobak: Record<string, { nama: string; qty: number }> = {};
+
     const rowsIn = resStokIn.data.values || [];
     rowsIn.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
@@ -115,11 +96,32 @@ export async function GET(request: Request) {
 
     const rowsOut = resStokOut.data.values || [];
     rowsOut.slice(1).forEach(row => {
+      const tgl = row[0] ? row[0].toString().trim() : '';
       const idStr = row[1] ? row[1].toString().trim() : '';
       if (!idStr || idStr.toLowerCase() === 'id produk') return;
+      
+      const namaItem = row[2] ? row[2].toString().trim() : 'Item';
+      const qty = parseQty(row[3]);
+      const tujuan = (row[8] || row[4] || '').toString().toLowerCase();
+
+      // Kalkulasi Aset Keseluruhan
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
-      kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
+      kalkulasiGudang[idStr].totalQtyOut += qty;
+
+      // Rekap Pemakaian Per Cabang (Khusus Bulan Ini)
+      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
+        if (tujuan.includes('gerobak')) {
+          if (!rekapPakaiGerobak[idStr]) rekapPakaiGerobak[idStr] = { nama: namaItem, qty: 0 };
+          rekapPakaiGerobak[idStr].qty += qty;
+        } else {
+          if (!rekapPakaiKedai[idStr]) rekapPakaiKedai[idStr] = { nama: namaItem, qty: 0 };
+          rekapPakaiKedai[idStr].qty += qty;
+        }
+      }
     });
+
+    kedai.pemakaian = Object.values(rekapPakaiKedai).sort((a, b) => b.qty - a.qty);
+    gerobak.pemakaian = Object.values(rekapPakaiGerobak).sort((a, b) => b.qty - a.qty);
 
     let totalNilaiAsetGudangAktif = 0;
     Object.keys(kalkulasiGudang).forEach(id => {
@@ -130,8 +132,6 @@ export async function GET(request: Request) {
     });
 
     const sisaKasGudangFisik = Math.round(8000000 - totalNilaiAsetGudangAktif);
-    const stokMasukFiltered = rowsIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
-    const stokKeluarFiltered = rowsOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
 
     return NextResponse.json({
       success: true,
@@ -142,8 +142,8 @@ export async function GET(request: Request) {
         nilaiAsetGudang: totalNilaiAsetGudangAktif,
         saldoGudangKas: sisaKasGudangFisik
       },
-      stokMasuk: stokMasukFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] })),
-      stokKeluar: stokKeluarFiltered.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }))
+      stokMasuk: rowsIn.slice(-5).filter((r:any) => r[1] && r[1].toLowerCase() !== 'id produk').reverse().map((r:any) => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] })),
+      stokKeluar: rowsOut.slice(-5).filter((r:any) => r[1] && r[1].toLowerCase() !== 'id produk').reverse().map((r:any) => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }))
     });
 
   } catch (error: any) {
@@ -151,7 +151,6 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. FUNGSI POST FIX: Menerima Banyak Item Belanjaan Cabang & Menyimpannya ke Kolom A-E
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -181,13 +180,12 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
-    // Memetakan struktur array multidimensi dengan kolom tujuan E (Peruntukan Cabang)
     const kumpulanBarisBaru = daftarBelanja.map((item: any) => [
       formatTanggalID, 
       item.kategori, 
       item.keterangan, 
       item.nominal,
-      item.peruntukan || 'Kedai' // Menyimpan teks 'Kedai' atau 'Gerobak' ke Kolom E
+      item.peruntukan || 'Kedai' 
     ]);
 
     await sheets.spreadsheets.values.append({
@@ -198,10 +196,9 @@ export async function POST(request: Request) {
       requestBody: { values: kumpulanBarisBaru },
     });
 
-    return NextResponse.json({ success: true, message: 'Seluruh draf belanja owner berhasil dikunci!' });
+    return NextResponse.json({ success: true, message: 'Catatan belanja berhasil dikunci!' });
 
   } catch (error: any) {
-    console.error('API Owner POST Error:', error);
-    return NextResponse.json({ error: 'Gagal mengunci data ke spreadsheet.', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal mengunci data.' }, { status: 500 });
   }
 }

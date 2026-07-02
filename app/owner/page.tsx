@@ -121,41 +121,39 @@ export default function DashboardOwner() {
 
         {/* ================= VIEW LAPORAN GABUNGAN (TOTAL) ================= */}
         {viewCabang === 'gabungan' && data && (
-          <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <div className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-sm flex justify-between items-center">
+          <div className="space-y-3 animate-in slide-in-from-bottom-2 fade-in duration-300">
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm flex justify-between items-center">
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Omset Kedai</p>
-                <p className="text-lg font-black text-zinc-800">Rp {formatIDR(data.kedai.omset)}</p>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gross Omset Kedai</p>
+                <p className="text-base font-black text-zinc-800">Rp {formatIDR(data.kedai.omset)}</p>
               </div>
-              <div className="w-px h-10 bg-zinc-200 mx-2"></div>
               <div className="text-right">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Omset Gerobak</p>
-                <p className="text-lg font-black text-zinc-800">Rp {formatIDR(data.gerobak.omset)}</p>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gross Omset Gerobak</p>
+                <p className="text-base font-black text-zinc-800">Rp {formatIDR(data.gerobak.omset)}</p>
               </div>
             </div>
             
-            <div className="bg-rose-50/50 p-5 rounded-3xl border border-rose-100 shadow-sm flex justify-between items-center">
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm flex justify-between items-center bg-zinc-50/50">
               <div>
-                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest mb-1">Beban Biaya Kedai</p>
-                <p className="text-sm font-black text-rose-700">Rp {formatIDR(data.kedai.pengeluaranKru + data.kedai.belanjaOwner)}</p>
-                <span className="text-[8px] text-rose-400/80 font-bold block mt-1">(Kru+Owner)</span>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Kedai (Kru+Owner)</p>
+                <p className="text-xs font-black text-rose-600">Rp {formatIDR(data.kedai.pengeluaranKru + data.kedai.belanjaOwner)}</p>
+                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Kru: {formatIDR(data.kedai.pengeluaranKru)} | Owner: {formatIDR(data.kedai.belanjaOwner)})</span>
               </div>
-              <div className="w-px h-10 bg-rose-200 mx-2"></div>
               <div className="text-right">
-                <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest mb-1">Beban Biaya Gerobak</p>
-                <p className="text-sm font-black text-rose-700">Rp {formatIDR(data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner)}</p>
-                <span className="text-[8px] text-rose-400/80 font-bold block mt-1">(Kru+Owner)</span>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Gerobak (Kru+Owner)</p>
+                <p className="text-xs font-black text-rose-600">Rp {formatIDR(data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner)}</p>
+                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Gerobak: {formatIDR(data.gerobak.pengeluaranKru)} | Owner: {formatIDR(data.gerobak.belanjaOwner)})</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-indigo-50/30 p-5 rounded-3xl border border-indigo-100 shadow-sm text-center">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Net Kedai</span>
-                <p className="text-base font-black text-indigo-600">Rp {formatIDR(data.kedai.labaBersih)}</p>
+              <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm">
+                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Laba Net Kedai Utama</span>
+                <p className="text-sm font-black text-indigo-600">Rp {formatIDR(data.kedai.labaBersih)}</p>
               </div>
-              <div className="bg-amber-50/30 p-5 rounded-3xl border border-amber-100 shadow-sm text-center">
-                <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Net Gerobak</span>
-                <p className="text-base font-black text-amber-600">Rp {formatIDR(data.gerobak.labaBersih)}</p>
+              <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm">
+                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Laba Net Gerobak</span>
+                <p className="text-sm font-black text-amber-600">Rp {formatIDR(data.gerobak.labaBersih)}</p>
               </div>
             </div>
           </div>
@@ -190,6 +188,23 @@ export default function DashboardOwner() {
               </div>
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
+
+            <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
+              <div className="p-4 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2">
+                <PackageMinus size={16} className="text-indigo-600" />
+                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Logistik Terpakai Kedai</span>
+              </div>
+              <div className="divide-y divide-zinc-50 text-xs max-h-48 overflow-y-auto">
+                {data.kedai.pemakaian.length > 0 ? data.kedai.pemakaian.map((item: any, i: number) => (
+                  <div key={i} className="p-3.5 flex justify-between items-center hover:bg-zinc-50 transition-colors">
+                    <span className="font-bold text-zinc-700">{item.nama}</span>
+                    <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg">{item.qty} Keluar</span>
+                  </div>
+                )) : (
+                  <p className="p-5 text-center text-[10px] text-zinc-400 italic">Belum ada pemakaian bahan.</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -221,6 +236,23 @@ export default function DashboardOwner() {
                 <p className="text-lg font-black text-rose-700">Rp {formatIDR(data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner)}</p>
               </div>
               <Wallet size={24} className="text-rose-400 opacity-50" />
+            </div>
+
+            <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
+              <div className="p-4 bg-amber-50/50 border-b border-amber-100 flex items-center gap-2">
+                <PackageMinus size={16} className="text-amber-600" />
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Logistik Terpakai Gerobak</span>
+              </div>
+              <div className="divide-y divide-zinc-50 text-xs max-h-48 overflow-y-auto">
+                {data.gerobak.pemakaian.length > 0 ? data.gerobak.pemakaian.map((item: any, i: number) => (
+                  <div key={i} className="p-3.5 flex justify-between items-center hover:bg-zinc-50 transition-colors">
+                    <span className="font-bold text-zinc-700">{item.nama}</span>
+                    <span className="text-[10px] font-black px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg">{item.qty} Keluar</span>
+                  </div>
+                )) : (
+                  <p className="p-5 text-center text-[10px] text-zinc-400 italic">Belum ada pemakaian bahan.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
