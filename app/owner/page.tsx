@@ -189,6 +189,7 @@ export default function DashboardOwner() {
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
+            {/* LIST PEMAKAIAN BAHAN KEDAI (DENGAN NILAI RUPIAH) */}
             <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
               <div className="p-4 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2">
                 <PackageMinus size={16} className="text-indigo-600" />
@@ -197,7 +198,10 @@ export default function DashboardOwner() {
               <div className="divide-y divide-zinc-50 text-xs max-h-48 overflow-y-auto">
                 {data.kedai.pemakaian.length > 0 ? data.kedai.pemakaian.map((item: any, i: number) => (
                   <div key={i} className="p-3.5 flex justify-between items-center hover:bg-zinc-50 transition-colors">
-                    <span className="font-bold text-zinc-700">{item.nama}</span>
+                    <div>
+                      <span className="font-bold text-zinc-700 block">{item.nama}</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 mt-0.5 block">Nilai: Rp {formatIDR(item.nilai)}</span>
+                    </div>
                     <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg">{item.qty} Keluar</span>
                   </div>
                 )) : (
@@ -238,6 +242,7 @@ export default function DashboardOwner() {
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
+            {/* LIST PEMAKAIAN BAHAN GEROBAK (DENGAN NILAI RUPIAH) */}
             <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
               <div className="p-4 bg-amber-50/50 border-b border-amber-100 flex items-center gap-2">
                 <PackageMinus size={16} className="text-amber-600" />
@@ -246,7 +251,10 @@ export default function DashboardOwner() {
               <div className="divide-y divide-zinc-50 text-xs max-h-48 overflow-y-auto">
                 {data.gerobak.pemakaian.length > 0 ? data.gerobak.pemakaian.map((item: any, i: number) => (
                   <div key={i} className="p-3.5 flex justify-between items-center hover:bg-zinc-50 transition-colors">
-                    <span className="font-bold text-zinc-700">{item.nama}</span>
+                    <div>
+                      <span className="font-bold text-zinc-700 block">{item.nama}</span>
+                      <span className="text-[10px] font-semibold text-zinc-400 mt-0.5 block">Nilai: Rp {formatIDR(item.nilai)}</span>
+                    </div>
                     <span className="text-[10px] font-black px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg">{item.qty} Keluar</span>
                   </div>
                 )) : (
