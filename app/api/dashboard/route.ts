@@ -36,14 +36,12 @@ export async function GET(request: Request) {
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
 
-    // FUNGSI PEMBERSERIH FORMAT ANGKA GOOGLE SHEETS
     const parseRupiah = (val: any) => {
       if (!val) return 0;
       let str = val.toString().trim();
-      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3); // Buang desimal ,00 atau .00
+      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
       return parseInt(str.replace(/\D/g, ''), 10) || 0;
     };
-
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
@@ -53,11 +51,10 @@ export async function GET(request: Request) {
     let akumulasiPengeluaranBulanan = 0;
     let akumulasiKasbonBulanan = 0;
 
-    // 1. PENJUALAN
+    // 1. Penjualan
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiTunaiBulanan += parseRupiah(row[3]);
       }
@@ -70,11 +67,10 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. PENGELUARAN (Kolom H / Index 7)
+    // 2. Pengeluaran
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-      
       const nominal = parseRupiah(row[7]);
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiPengeluaranBulanan += nominal;
@@ -84,11 +80,10 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. KASBON
+    // 3. Kasbon
     (resKasbon.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-      
       const nominal = parseRupiah(row[2]);
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiKasbonBulanan += nominal;
@@ -98,12 +93,12 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. ASET GUDANG
+    // 4. Moving Average Gudang HPP + FIX PEMBULATAN MATEMATIKA
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     
     (resStokIn.data.values || []).slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return;
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyIn += parseQty(row[3]);
       kalkulasiGudang[idStr].totalCostIn += parseRupiah(row[5]);
@@ -111,7 +106,7 @@ export async function GET(request: Request) {
 
     (resStokOut.data.values || []).slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr) return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return;
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
     });
@@ -121,10 +116,15 @@ export async function GET(request: Request) {
       const item = kalkulasiGudang[id];
       const hrgRata2 = item.totalQtyIn > 0 ? (item.totalCostIn / item.totalQtyIn) : 0;
       const sisaStok = item.totalQtyIn - item.totalQtyOut;
-      if (sisaStok > 0) totalNilaiAsetGudangAktif += (sisaStok * hrgRata2);
+      if (sisaStok > 0) {
+        // KODE SAKTI: Membulatkan nilai aset per item ke rupiah terdekat
+        totalNilaiAsetGudangAktif += Math.round(sisaStok * hrgRata2);
+      }
     });
 
-    const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan;
+    totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
+    const saldoLaciKasir = Math.round(akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan);
+    
     const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
     const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
 
