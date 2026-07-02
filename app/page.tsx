@@ -132,55 +132,34 @@ export default function HomeDashboard() {
             <p className="text-base font-black text-zinc-800">Rp {data ? formatIDR(data.omset.total) : '0'}</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Biaya Hari Ini</span>
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Total Pengeluaran Hari Ini</span>
             <p className="text-base font-black text-zinc-800">Rp {data ? formatIDR(data.totalKeluar) : '0'}</p>
           </div>
         </div>
 
-        {/* BARU: LINK PAGE TOTAL ASET GUDANG */}
-        <Link href="/aset-gudang" className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex justify-between items-center hover:bg-indigo-100/60 transition-all shadow-2xs group">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs"><Layers size={16} /></div>
+        {/* DOUBLE BUTTON: ASET GUDANG & KASBON (CLEAN UI) */}
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/aset-gudang" className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex flex-col justify-between hover:bg-indigo-100/60 transition-all shadow-2xs group relative overflow-hidden">
+            <ArrowUpRight size={16} className="absolute top-3 right-3 text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs w-fit mb-3"><Layers size={14} /></div>
             <div>
-              <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Total Nilai Aset Gudang</p>
-              <p className="text-base font-black text-indigo-950">Rp {data ? formatIDR(data.nilaiAsetGudang) : '0'}</p>
+              <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">Nilai Aset Gudang</p>
+              <p className="text-sm font-black text-indigo-950 truncate">Rp {data ? formatIDR(data.nilaiAsetGudang) : '0'}</p>
             </div>
-          </div>
-          <ArrowUpRight size={16} className="text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-        </Link>
+          </Link>
 
-        {/* MENU OPERASIONAL (TERMASUK KASBON SEKARANG) */}
-        <div className="space-y-2.5 pt-2">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block pl-1">Menu Transaksi & Log</span>
-          <div className="grid grid-cols-3 gap-2">
-            <Link href="/absen" className="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-3xs flex flex-col items-center justify-center gap-1.5 group">
-              <Camera size={16} className="text-zinc-500 group-hover:text-indigo-600 transition-colors" />
-              <span className="text-[10px] font-bold text-zinc-700">Absensi</span>
-            </Link>
-            <Link href="/penjualan" className="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-3xs flex flex-col items-center justify-center gap-1.5 group">
-              <TrendingUp size={16} className="text-zinc-500 group-hover:text-emerald-600 transition-colors" />
-              <span className="text-[10px] font-bold text-zinc-700">Setor Omset</span>
-            </Link>
-            <Link href="/pengeluaran" className="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-3xs flex flex-col items-center justify-center gap-1.5 group">
-              <Wallet size={16} className="text-zinc-500 group-hover:text-rose-600 transition-colors" />
-              <span className="text-[10px] font-bold text-zinc-700">Biaya Laci</span>
-            </Link>
-            <Link href="/stok" className="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-3xs flex flex-col items-center justify-center gap-1.5 group">
-              <Box size={16} className="text-zinc-500 group-hover:text-indigo-600 transition-colors" />
-              <span className="text-[10px] font-bold text-zinc-700">Stok Gudang</span>
-            </Link>
-            {/* INI TOMBOL KASBON YANG SUDAH DITAMBAHKAN */}
-            <Link href="/kasbon" className="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-3xs flex flex-col items-center justify-center gap-1.5 group col-span-2">
-              <div className="flex items-center gap-1.5">
-                <Landmark size={14} className="text-zinc-500 group-hover:text-amber-500 transition-colors" />
-                <span className="text-[10px] font-bold text-zinc-700">Catat Pinjaman Kasbon Kru</span>
-              </div>
-            </Link>
-          </div>
+          <Link href="/kasbon" className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex flex-col justify-between hover:bg-amber-100/60 transition-all shadow-2xs group relative overflow-hidden">
+            <ArrowUpRight size={16} className="absolute top-3 right-3 text-amber-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <div className="p-2 bg-amber-500 text-white rounded-xl shadow-xs w-fit mb-3"><Landmark size={14} /></div>
+            <div>
+              <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mb-0.5">Administrasi Kru</p>
+              <p className="text-sm font-black text-amber-950 truncate">Catat Kasbon</p>
+            </div>
+          </Link>
         </div>
 
         {/* BREAKDOWN METODE PEMBAYARAN HARIAN */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mt-2">
           <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Rincian Pembayaran Masuk</span>
           </div>
@@ -241,7 +220,7 @@ export default function HomeDashboard() {
                 <div key={i} className="p-2.5 flex justify-between items-center bg-white">
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-zinc-700">{row[2]}</span>
-                    <span className="text-[9px] text-zinc-400">Tujuan: {row[5]} ({row[0]})</span>
+                    <span className="text-[9px] text-zinc-400">Tujuan: {row[8] || row[4]} ({row[0]})</span>
                   </div>
                   <span className="text-[10px] font-black bg-zinc-100 px-2 py-0.5 rounded-md text-rose-500">-...{row[3]}</span>
                 </div>
@@ -254,27 +233,27 @@ export default function HomeDashboard() {
 
       </div>
 
-      {/* FOOTER */}
+      {/* FOOTER (FLOATING BOTTOM NAV) */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         <div className="bg-zinc-900/95 backdrop-blur-lg border border-white/10 rounded-3xl shadow-2xl p-2 px-6 flex justify-between items-center">
           <Link href="/" className="flex flex-col items-center gap-1 text-indigo-400 p-2">
             <LayoutDashboard size={20} strokeWidth={2.5} />
             <span className="text-[8px] font-black uppercase tracking-tighter">Home</span>
           </Link>
-          <Link href="/absen" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2">
+          <Link href="/absen" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2 transition-colors">
             <Camera size={20} />
             <span className="text-[8px] font-black uppercase tracking-tighter">Absen</span>
           </Link>
           <Link href="/penjualan" className="flex flex-col items-center gap-1 text-emerald-500 p-2 transform scale-110 -mt-2">
-             <div className="bg-emerald-500 text-white p-3 rounded-full shadow-lg ring-4 ring-zinc-900">
+             <div className="bg-emerald-500 text-white p-3 rounded-full shadow-lg ring-4 ring-zinc-900 transition-transform active:scale-95">
                <TrendingUp size={20} strokeWidth={3} />
              </div>
           </Link>
-          <Link href="/stok" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2">
+          <Link href="/stok" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2 transition-colors">
             <Box size={20} />
             <span className="text-[8px] font-black uppercase tracking-tighter">Stok</span>
           </Link>
-          <Link href="/pengeluaran" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2">
+          <Link href="/pengeluaran" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2 transition-colors">
             <Wallet size={20} />
             <span className="text-[8px] font-black uppercase tracking-tighter">Biaya</span>
           </Link>

@@ -95,8 +95,7 @@ export async function POST(request: Request) {
     } else if (type === 'out') {
       rangeTarget = 'Stok_Keluar!A:I';
       
-      // LOGIKA BARU: HITUNG HPP OTOMATIS SAAT TOMBOL SIMPAN DITEKAN
-      // 1. Panggil riwayat Stok Masuk untuk mencari Harga Rata-Rata (Moving Average)
+      // Ambil riwayat Stok Masuk untuk mencari Harga Rata-Rata (Moving Average)
       const resStokIn = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: 'Stok_Masuk!A:G'
@@ -106,33 +105,53 @@ export async function POST(request: Request) {
       (resStokIn.data.values || []).slice(1).forEach(row => {
         const idStr = row[1] ? row[1].toString().trim() : '';
         if (!idStr) return;
+        
+        // Skip baris header jika tidak sengaja terbaca string
+        if (idStr.toLowerCase() === 'id produk') return;
+
+        // Pembersihan format desimal akuntansi
+        const cleanNumber = (val: any) => {
+          if (!val) return 0;
+          let str = val.toString().trim();
+          if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
+          return parseInt(str.replace(/\D/g, ''), 10) || 0;
+        };
+
+        const qtyIn = parseFloat(row[3] ? row[3].toString().replace(',', '.') : '0') || 0;
+        const totalCost = cleanNumber(row[5]);
+
         if (!kalkulasiHPP[idStr]) kalkulasiHPP[idStr] = { totalQtyIn: 0, totalCostIn: 0 };
-        kalkulasiHPP[idStr].totalQtyIn += parseFloat(row[3] || '0') || 0;
-        kalkulasiHPP[idStr].totalCostIn += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
+        kalkulasiHPP[idStr].totalQtyIn += qtyIn;
+        kalkulasiHPP[idStr].totalCostIn += totalCost;
       });
 
-      // 2. Susun baris keluaran dengan Nominal Uang yang sudah dihitung
+      // URUTAN BARU YANG SUDAH DI-FIX SESUAI COLUMNS GOOGLE SHEET OWNER:
+      // Index 0: Tanggal
+      // Index 1: ID Produk
+      // Index 2: Nama Barang
+      // Index 3: Kuantiti Keluar
+      // Index 4: Keterangan
+      // Index 5: Penginput
+      // Index 6: Harga Item (Moving Average)
+      // Index 7: Total (HPP Terpakai)
+      // Index 8: Lokasi Tujuan
       kumpulanBarisBaru = daftarStok.map((item: any) => {
         const id = item.idProduk;
         const dataIn = kalkulasiHPP[id] || { totalQtyIn: 0, totalCostIn: 0 };
         
-        // Rumus Harga Rata-Rata
         const hargaRataRata = dataIn.totalQtyIn > 0 ? Math.round(dataIn.totalCostIn / dataIn.totalQtyIn) : 0;
-        
-        // Rumus Total Modal Terpakai
         const totalModalTerpakai = Math.round(hargaRataRata * item.kuantiti);
 
-        // Format: Tanggal | ID | Nama | Qty | Keterangan | Penginput | Harga Rata2/Pcs | Total Modal Terpakai | Lokasi Tujuan
         return [
-          formatTanggalID, 
-          item.idProduk, 
-          item.namaBarang, 
-          item.kuantiti, 
-          keterangan, 
-          penginput, 
-          hargaRataRata, 
-          totalModalTerpakai, 
-          lokasiTujuan
+          formatTanggalID,      // Row A
+          item.idProduk,        // Row B
+          item.namaBarang,      // Row C
+          item.kuantiti,        // Row D
+          keterangan,           // Row E
+          penginput,            // Row F
+          hargaRataRata,        // Row G
+          totalModalTerpakai,   // Row H
+          lokasiTujuan          // Row I
         ];
       });
 
@@ -140,7 +159,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Aksi logistik tidak dikenali.' }, { status: 400 });
     }
 
-    // Tulis ke Google Sheets
+    // Tulis data baris baru ke Google Sheets
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: rangeTarget,
