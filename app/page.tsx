@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, TrendingUp, Wallet, Box, 
   RefreshCw, Calendar, ArrowUpRight, ArrowDownRight, 
-  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers, MessageCircle, Store
+  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers, MessageCircle, Store, BookOpen
 } from 'lucide-react';
 
 export default function HomeDashboard() {
@@ -130,7 +130,25 @@ export default function HomeDashboard() {
           </div>
         </Link>
       </div>
-
+{/* --- TAMBAHKAN KODE INI TEPAT DI BAWAH BANNER GEROBAK --- */}
+      {/* BANNER NAVIGASI PORTAL KRU (HANDBOOK) */}
+      <div className="max-w-md mx-auto px-5 mt-3">
+        <Link href="/kru/login" className="bg-gradient-to-r from-indigo-500 to-blue-600 p-4 rounded-3xl flex items-center justify-between text-white shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-sm shadow-inner">
+              <BookOpen size={20} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-indigo-100 uppercase tracking-widest mb-0.5">Mini-HRIS & Slip Gaji</p>
+              <p className="text-sm font-black tracking-wide">Buka Handbook Kru</p>
+            </div>
+          </div>
+          <div className="p-2 bg-white/10 rounded-full flex shrink-0">
+            <ArrowUpRight size={18} className="text-indigo-50" />
+          </div>
+        </Link>
+      </div>
+      {/* ------------------------------------------------------- */}
       <div className="max-w-md mx-auto px-5 mt-5 space-y-5">
         
         {/* ESTIMASI KAS LACI KASIR */}
