@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ChevronLeft, Layers, AlertTriangle, Package, 
-  ArrowDownRight, ArrowUpRight, RefreshCw, Box
+  ArrowDownRight, ArrowUpRight, RefreshCw, Box, ShieldAlert
 } from 'lucide-react';
 
 export default function TrackerAsetGudang() {
@@ -72,22 +72,31 @@ export default function TrackerAsetGudang() {
           </div>
         </div>
 
-        {/* 🚨 STOCK ALERT SECTION (Hanya Muncul Jika Ada Stok Tipis) */}
+        {/* 🚨 STOCK ALERT SECTION KUSTOM */}
         {alerts.length > 0 && (
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 animate-pulse"></div>
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={18} className="text-rose-600" />
-              <h3 className="text-xs font-black text-rose-700 uppercase tracking-wide">Peringatan: Stok Menipis</h3>
+              <h3 className="text-xs font-black text-rose-700 uppercase tracking-wide">Peringatan Kritis!</h3>
             </div>
             <p className="text-[10px] text-rose-600/80 font-semibold mb-3">
-              Ada {alerts.length} item bahan baku dengan sisa stok &le; 10. Segera lakukan pengadaan belanja (Restock)!
+              Ada {alerts.length} item menembus batas minimum stok. Segera jadwalkan Restock!
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {alerts.map((alert, idx) => (
-                <div key={idx} className="bg-white border border-rose-100 px-3 py-2 rounded-xl flex flex-col min-w-[120px] flex-1 shadow-2xs">
-                  <span className="text-[10px] font-black text-zinc-800 line-clamp-1">{alert.nama}</span>
-                  <span className="text-xs font-black text-rose-600 mt-1">Sisa {alert.sisa}</span>
+                <div key={idx} className="bg-white border border-rose-100 p-2.5 rounded-xl flex flex-col shadow-2xs relative">
+                  <span className="text-[10px] font-black text-zinc-800 leading-tight mb-1">{alert.nama}</span>
+                  <div className="flex justify-between items-end mt-auto">
+                    <div>
+                      <span className="text-[8px] font-bold text-zinc-400 uppercase">Sisa Fisik</span>
+                      <p className="text-xs font-black text-rose-600">{alert.sisa}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[8px] font-bold text-zinc-400 uppercase">Batas Aman</span>
+                      <p className="text-xs font-black text-zinc-400">{alert.batasAman}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -106,12 +115,18 @@ export default function TrackerAsetGudang() {
               <p className="text-center text-xs text-zinc-400 py-10 font-medium animate-pulse">Memuat data gudang...</p>
             ) : items.length > 0 ? (
               items.map((item, index) => (
-                <div key={index} className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-3xs flex flex-col gap-3 transition-all hover:border-indigo-200">
+                <div key={index} className={`bg-white p-4 rounded-2xl border shadow-3xs flex flex-col gap-3 transition-all ${item.sisa <= item.batasAman ? 'border-rose-200' : 'border-zinc-200 hover:border-indigo-200'}`}>
+                  
                   {/* Header Item */}
                   <div className="flex justify-between items-start border-b border-zinc-100 pb-3">
                     <div>
                       <div className="text-[9px] font-bold text-zinc-400 mb-0.5">{item.id}</div>
                       <h4 className="text-sm font-black text-zinc-800 leading-tight">{item.nama}</h4>
+                      {item.sisa <= item.batasAman && (
+                        <div className="flex items-center gap-1 mt-1.5 text-rose-500 bg-rose-50 w-fit px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">
+                          <ShieldAlert size={10} /> Perlu Restock
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Nilai Aset</div>
@@ -120,22 +135,26 @@ export default function TrackerAsetGudang() {
                   </div>
 
                   {/* Body Pergerakan */}
-                  <div className="grid grid-cols-3 gap-2 divide-x divide-zinc-100">
+                  <div className="grid grid-cols-4 gap-2 divide-x divide-zinc-100">
                     <div className="flex flex-col items-center justify-center">
-                      <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-400 uppercase">
+                      <div className="flex items-center gap-1 text-[8px] font-bold text-zinc-400 uppercase">
                         <ArrowDownRight size={10} className="text-emerald-500" /> Masuk
                       </div>
                       <span className="text-xs font-black text-emerald-600 mt-1">{item.masuk}</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                      <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-400 uppercase">
+                      <div className="flex items-center gap-1 text-[8px] font-bold text-zinc-400 uppercase">
                         <ArrowUpRight size={10} className="text-rose-500" /> Keluar
                       </div>
                       <span className="text-xs font-black text-rose-600 mt-1">{item.keluar}</span>
                     </div>
-                    <div className="flex flex-col items-center justify-center bg-zinc-50 rounded-xl py-1">
-                      <div className="text-[9px] font-black text-zinc-500 uppercase">Sisa Stok</div>
-                      <span className={`text-sm font-black mt-0.5 ${item.sisa <= 10 ? 'text-rose-600' : 'text-zinc-800'}`}>
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-[8px] font-black text-zinc-400 uppercase text-center">Batas<br/>Aman</div>
+                      <span className="text-xs font-bold text-zinc-400 mt-0.5">{item.batasAman}</span>
+                    </div>
+                    <div className={`flex flex-col items-center justify-center rounded-xl py-1 ${item.sisa <= item.batasAman ? 'bg-rose-50' : 'bg-zinc-50'}`}>
+                      <div className="text-[8px] font-black text-zinc-500 uppercase">Sisa Stok</div>
+                      <span className={`text-sm font-black mt-0.5 ${item.sisa <= item.batasAman ? 'text-rose-600' : 'text-zinc-800'}`}>
                         {item.sisa}
                       </span>
                     </div>
