@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         hariKerjaTercatat.add(dateOnly); 
 
         // =========================================================
-        // FIX: NORMALISASI JAM (Mencegah Google Sheets membuang angka 0 di depan)
+        // FIX: NORMALISASI JAM ( Google Sheets membuang angka 0 di depan)
         // =========================================================
         const timeRaw = timestamp.split(' ')[1] || '23:59:59'; 
         const timeParts = timeRaw.split(':');
