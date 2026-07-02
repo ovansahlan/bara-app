@@ -135,25 +135,38 @@ export default function DashboardOwner() {
             
             <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm flex justify-between items-center bg-zinc-50/50">
               <div>
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Kedai (Kru+Owner)</p>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Kedai</p>
                 <p className="text-xs font-black text-rose-600">Rp {formatIDR(data.kedai.pengeluaranKru + data.kedai.belanjaOwner)}</p>
-                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Kru: {formatIDR(data.kedai.pengeluaranKru)} | Owner: {formatIDR(data.kedai.belanjaOwner)})</span>
+                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Kru + Owner)</span>
               </div>
               <div className="text-right">
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Gerobak (Kru+Owner)</p>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Biaya Gerobak</p>
                 <p className="text-xs font-black text-rose-600">Rp {formatIDR(data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner)}</p>
-                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Gerobak: {formatIDR(data.gerobak.pengeluaranKru)} | Owner: {formatIDR(data.gerobak.belanjaOwner)})</span>
+                <span className="text-[8px] text-zinc-400 font-medium block mt-0.5">(Kru + Owner)</span>
+              </div>
+            </div>
+
+            {/* KARTU BARU: TOTAL HPP (MODAL LOGISTIK) GABUNGAN */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 shadow-sm flex justify-between items-center">
+              <div>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total HPP Kedai</p>
+                <p className="text-xs font-black text-slate-700">Rp {formatIDR(data.kedai.totalNilaiPemakaian)}</p>
+              </div>
+              <div className="w-px h-8 bg-slate-200 mx-2"></div>
+              <div className="text-right">
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total HPP Gerobak</p>
+                <p className="text-xs font-black text-slate-700">Rp {formatIDR(data.gerobak.totalNilaiPemakaian)}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Laba Net Kedai Utama</span>
-                <p className="text-sm font-black text-indigo-600">Rp {formatIDR(data.kedai.labaBersih)}</p>
+              <div className="bg-indigo-50/30 p-5 rounded-3xl border border-indigo-100 shadow-sm text-center">
+                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Net Kedai</span>
+                <p className="text-base font-black text-indigo-600">Rp {formatIDR(data.kedai.labaBersih)}</p>
               </div>
-              <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-sm">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Laba Net Gerobak</span>
-                <p className="text-sm font-black text-amber-600">Rp {formatIDR(data.gerobak.labaBersih)}</p>
+              <div className="bg-amber-50/30 p-5 rounded-3xl border border-amber-100 shadow-sm text-center">
+                <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Net Gerobak</span>
+                <p className="text-base font-black text-amber-600">Rp {formatIDR(data.gerobak.labaBersih)}</p>
               </div>
             </div>
           </div>
@@ -183,13 +196,21 @@ export default function DashboardOwner() {
             
             <div className="bg-rose-50/50 p-5 rounded-3xl border border-rose-100 shadow-sm col-span-2 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Total Beban Kedai</span>
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Total Beban Biaya</span>
                 <p className="text-lg font-black text-rose-700">Rp {formatIDR(data.kedai.pengeluaranKru + data.kedai.belanjaOwner)}</p>
               </div>
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
-            {/* LIST PEMAKAIAN BAHAN KEDAI (DENGAN NILAI RUPIAH) */}
+            {/* KARTU BARU: TOTAL MODAL HPP LOGISTIK KEDAI */}
+            <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100 shadow-sm col-span-2 flex items-center justify-between mt-1">
+              <div>
+                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block mb-1">Total Modal Logistik (HPP)</span>
+                <p className="text-lg font-black text-indigo-700">Rp {formatIDR(data.kedai.totalNilaiPemakaian)}</p>
+              </div>
+              <PackageMinus size={24} className="text-indigo-400 opacity-50" />
+            </div>
+
             <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
               <div className="p-4 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2">
                 <PackageMinus size={16} className="text-indigo-600" />
@@ -236,13 +257,21 @@ export default function DashboardOwner() {
             
             <div className="bg-rose-50/50 p-5 rounded-3xl border border-rose-100 shadow-sm col-span-2 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Total Beban Gerobak</span>
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Total Beban Biaya</span>
                 <p className="text-lg font-black text-rose-700">Rp {formatIDR(data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner)}</p>
               </div>
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
-            {/* LIST PEMAKAIAN BAHAN GEROBAK (DENGAN NILAI RUPIAH) */}
+            {/* KARTU BARU: TOTAL MODAL HPP LOGISTIK GEROBAK */}
+            <div className="bg-amber-50/50 p-5 rounded-3xl border border-amber-100 shadow-sm col-span-2 flex items-center justify-between mt-1">
+              <div>
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Total Modal Logistik (HPP)</span>
+                <p className="text-lg font-black text-amber-700">Rp {formatIDR(data.gerobak.totalNilaiPemakaian)}</p>
+              </div>
+              <PackageMinus size={24} className="text-amber-400 opacity-50" />
+            </div>
+
             <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden col-span-2 mt-1">
               <div className="p-4 bg-amber-50/50 border-b border-amber-100 flex items-center gap-2">
                 <PackageMinus size={16} className="text-amber-600" />

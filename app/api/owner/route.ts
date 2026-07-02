@@ -48,10 +48,10 @@ export async function GET(request: Request) {
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[] };
-    const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[] };
+    // BARU: Penambahan variabel penampung totalNilaiPemakaian
+    const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[], totalNilaiPemakaian: 0 };
+    const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[], totalNilaiPemakaian: 0 };
 
-    // 1-5. Hitung Finansial
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) kedai.omset += parseRupiah(row[7]);
@@ -80,7 +80,6 @@ export async function GET(request: Request) {
     kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner);
     gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner);
 
-    // 6. GUDANG & REKAP PEMAKAIAN (QTY + NILAI RUPIAH)
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     const rekapPakaiKedai: Record<string, { nama: string; qty: number; nilai: number }> = {};
     const rekapPakaiGerobak: Record<string, { nama: string; qty: number; nilai: number }> = {};
@@ -102,14 +101,12 @@ export async function GET(request: Request) {
       
       const namaItem = row[2] ? row[2].toString().trim() : 'Item';
       const qty = parseQty(row[3]);
-      const nilai = parseRupiah(row[7]); // MENARIK TOTAL RUPIAH DARI KOLOM H
+      const nilai = parseRupiah(row[7]); 
       const tujuan = (row[8] || row[4] || '').toString().toLowerCase();
 
-      // Kalkulasi Aset Keseluruhan
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyOut += qty;
 
-      // Rekap Pemakaian Per Cabang
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
         if (tujuan.includes('gerobak')) {
           if (!rekapPakaiGerobak[idStr]) rekapPakaiGerobak[idStr] = { nama: namaItem, qty: 0, nilai: 0 };
@@ -123,9 +120,12 @@ export async function GET(request: Request) {
       }
     });
 
-    // Urutkan berdasarkan QTY terbanyak
     kedai.pemakaian = Object.values(rekapPakaiKedai).sort((a, b) => b.qty - a.qty);
     gerobak.pemakaian = Object.values(rekapPakaiGerobak).sort((a, b) => b.qty - a.qty);
+
+    // BARU: Menjumlahkan semua total nilai pemakaian di frontend untuk kartu laporan
+    kedai.totalNilaiPemakaian = kedai.pemakaian.reduce((sum, item) => sum + item.nilai, 0);
+    gerobak.totalNilaiPemakaian = gerobak.pemakaian.reduce((sum, item) => sum + item.nilai, 0);
 
     let totalNilaiAsetGudangAktif = 0;
     Object.keys(kalkulasiGudang).forEach(id => {
