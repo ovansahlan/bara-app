@@ -184,17 +184,26 @@ export default function HomeDashboard() {
           </div>
         </div>
 
-        {/* TOMBOL BARU: GENERATE LAPORAN WHATSAPP */}
-        <Link href="/report" className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center hover:bg-emerald-100/60 transition-all shadow-2xs group relative overflow-hidden">
-          <ArrowUpRight size={16} className="absolute top-3 right-3 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500 text-white rounded-xl shadow-xs"><MessageCircle size={16} /></div>
+       {/* ACTION BUTTONS: LAPORAN WA & REVISI */}
+       <div className="grid grid-cols-2 gap-3">
+          <Link href="/report" className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex flex-col justify-between hover:bg-emerald-100/60 transition-all shadow-2xs group relative overflow-hidden">
+            <ArrowUpRight size={16} className="absolute top-3 right-3 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs w-fit mb-3"><MessageCircle size={14} /></div>
             <div>
-              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Serah Terima & Closing</p>
-              <p className="text-sm font-black text-emerald-950">Buat Laporan WhatsApp</p>
+              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Closing Shift</p>
+              <p className="text-sm font-black text-emerald-950">Laporan WA</p>
             </div>
-          </div>
-        </Link>
+          </Link>
+
+          <Link href="/revisi" className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex flex-col justify-between hover:bg-rose-100/60 transition-all shadow-2xs group relative overflow-hidden">
+            <ArrowUpRight size={16} className="absolute top-3 right-3 text-rose-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <div className="p-2 bg-rose-500 text-white rounded-xl shadow-xs w-fit mb-3"><History size={14} /></div>
+            <div>
+              <p className="text-[9px] font-bold text-rose-600 uppercase tracking-wider mb-0.5">Koreksi Typo</p>
+              <p className="text-sm font-black text-rose-950">Revisi Data</p>
+            </div>
+          </Link>
+        </div>
 
         {/* LOGISTIK GUDANG TERBARU */}
         <div className="space-y-2.5 pt-1">
