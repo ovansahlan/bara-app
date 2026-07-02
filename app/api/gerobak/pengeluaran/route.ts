@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `'${day}/${month}/${year}`;
 
-    // Format Baris: Tanggal(A) | Nama(B) | Kategori(C) | Keterangan(D) | Qty(E) | Harga(F) | Kosong(G) | Total(H)
+    // Format Baris: Tanggal(A) | Nama(B) | Kategori(C) | Keterangan(D) | Qty(E) | Harga(F) | Kosong(G) | Total(H) |
     const kumpulanBarisBaru = daftarPengeluaran.map((item: any) => [
       formatTanggalID, 
       namaKru, 
