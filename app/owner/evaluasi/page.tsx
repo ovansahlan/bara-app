@@ -3,7 +3,7 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Award, ShieldCheck, RefreshCw, MessageSquareQuote, FileClock, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Award, ShieldCheck, RefreshCw, MessageSquareQuote, FileClock, AlertTriangle, Stethoscope, FileText, Coffee } from 'lucide-react';
 
 export default function FormEvaluasiOwner() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function FormEvaluasiOwner() {
     catatan: ''
   });
 
+  // 1. Tarik Daftar Nama Kru
   useEffect(() => {
     const fetchSemuaKru = async () => {
       try {
@@ -37,7 +38,7 @@ export default function FormEvaluasiOwner() {
     fetchSemuaKru();
   }, []);
 
-  // Tarik data absen otomatis setiap kali Bos memilih nama kru
+  // 2. Tarik Data Rekap Absen saat nama dipilih
   useEffect(() => {
     if (!form.namaKru) {
       setRekapAbsen(null);
@@ -145,6 +146,8 @@ export default function FormEvaluasiOwner() {
                   <div className="text-center text-[10px] text-slate-500 py-4 animate-pulse">Menghitung data presensi...</div>
                 ) : rekapAbsen ? (
                   <div className="grid grid-cols-2 gap-3">
+                    
+                    {/* BARIS TEPAT WAKTU & TELAT */}
                     <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
                       <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">Tepat Waktu</span>
                       <p className="text-sm font-black text-slate-200">{rekapAbsen.tepatWaktu} <span className="text-[9px] text-slate-500 font-medium">Hari</span></p>
@@ -153,7 +156,41 @@ export default function FormEvaluasiOwner() {
                       <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider block">Telat / Kesiangan</span>
                       <p className="text-sm font-black text-slate-200">{rekapAbsen.telat} <span className="text-[9px] text-slate-500 font-medium">Hari</span></p>
                     </div>
-                    <div className="bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/30 col-span-2 flex items-center justify-between">
+                    
+                    {/* BARIS IZIN & SAKIT */}
+                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                      <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 flex items-center gap-2">
+                        <FileText size={16} className="text-amber-500/70" />
+                        <div>
+                          <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider block">Izin Resmi</span>
+                          <p className="text-xs font-black text-slate-200">{rekapAbsen.izin} Hari</p>
+                        </div>
+                      </div>
+                      <div className="bg-orange-500/10 p-2.5 rounded-xl border border-orange-500/20 flex items-center gap-2">
+                        <Stethoscope size={16} className="text-orange-500/70" />
+                        <div>
+                          <span className="text-[9px] font-bold text-orange-500 uppercase tracking-wider block">Sakit</span>
+                          <p className="text-xs font-black text-slate-200">{rekapAbsen.sakit} Hari</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BARIS DETEKSI LIBUR / ALFA OTOMATIS */}
+                    <div className="bg-slate-800 p-2.5 rounded-xl border border-slate-700 col-span-2 flex items-center justify-between mt-1">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Hari Kosong (Libur / Alfa)</span>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-black text-slate-200">{rekapAbsen.hariKosong} <span className="text-[9px] text-slate-500 font-medium">Hari</span></p>
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">Dari {rekapAbsen.hariBerjalan} hari bulan ini</span>
+                        </div>
+                      </div>
+                      <div className={`p-2 rounded-lg ${rekapAbsen.hariKosong > 5 ? 'bg-rose-500/20 text-rose-500' : 'bg-slate-700 text-slate-400'}`}>
+                        {rekapAbsen.hariKosong > 5 ? <AlertTriangle size={18} /> : <Coffee size={18} />}
+                      </div>
+                    </div>
+
+                    {/* BARIS POTENSI OVERTIME */}
+                    <div className="bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/30 col-span-2 flex items-center justify-between mt-1">
                       <div>
                         <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block mb-0.5">Potensi Overtime</span>
                         <div className="flex items-center gap-2 text-xs font-black text-slate-200">
@@ -164,6 +201,7 @@ export default function FormEvaluasiOwner() {
                       </div>
                       <AlertTriangle size={20} className="text-indigo-500/50" />
                     </div>
+
                   </div>
                 ) : (
                   <div className="text-center text-[10px] text-rose-500 py-2">Data absensi tidak ditemukan.</div>
