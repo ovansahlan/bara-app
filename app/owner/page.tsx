@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   RefreshCw, Calendar, TrendingUp, Wallet, PlusCircle, Landmark, 
-  PackageMinus, ShieldCheck, LogOut, Boxes
+  PackageMinus, ShieldCheck, LogOut, Boxes,Award
 } from 'lucide-react';
 
 export default function DashboardOwner() {
