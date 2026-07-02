@@ -6,7 +6,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tanggalFilter = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
-    // Format pencocokan tanggal harian & bulanan harian
     const [year, month, day] = tanggalFilter.split('-');
     const prefixTanggalID = `/${month}/${year}`; 
     const prefixTanggalWeb = `${year}-${month}`; 
@@ -29,22 +28,24 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // MENEMBAK NAMA TAB ASLI TANPA "DB_"
     const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:C' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:G' }).catch(() => ({ data: { values: [] } }))
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:E' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:H' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:H' }).catch(() => ({ data: { values: [] } }))
     ]);
 
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     let pengeluaranHarian = 0;
     let kasbonHarian = 0;
+    
+    // Variabel Akumulasi Bulanan untuk Laci Kasir (Reset tiap bulan baru)
     let akumulasiTunaiBulanan = 0;
     let akumulasiPengeluaranBulanan = 0;
+    let akumulasiKasbonBulanan = 0;
 
-    // 1. HITUNG OMSET (Kolom H / Index 7) & AKUMULASI TUNAI (Kolom D / Index 3)
+    // 1. PENJUALAN
     const barisPenjualan = resPenjualan.data.values || [];
     barisPenjualan.slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. HITUNG PENGELUARAN (Kolom E / Index 4)
+    // 2. PENGELUARAN (Kolom H / Index 7)
     const barisPengeluaran = resPengeluaran.data.values || [];
     barisPengeluaran.slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
@@ -78,27 +79,27 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. HITUNG KASBON (Kolom C / Index 2)
+    // 3. KASBON (Kolom C / Index 2)
     const barisKasbon = resKasbon.data.values || [];
     barisKasbon.slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
+      if (!rowTanggal) return;
+
+      const nominal = parseInt((row[2] || '0').toString().replace(/\D/g, ''), 10) || 0;
+
+      if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
+         akumulasiKasbonBulanan += nominal;
+      }
       if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        kasbonHarian += parseInt((row[2] || '0').toString().replace(/\D/g, ''), 10) || 0;
+        kasbonHarian += nominal;
       }
     });
 
-    const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan;
+    // RUMUS LACI KASIR: Total Tunai Bulan Ini - (Pengeluaran Bulan Ini + Kasbon Bulan Ini)
+    const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan;
 
     const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
     const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
-
-    const debugInfo = {
-      penjualanTotalBaris: barisPenjualan.length,
-      pengeluaranTotalBaris: barisPengeluaran.length,
-      kasbonTotalBaris: barisKasbon.length,
-      tanggalTargetWeb: tanggalFilter,
-      tanggalTargetID: formatTanggalID
-    };
 
     return NextResponse.json({
       omset: omsetHarian,
@@ -106,8 +107,7 @@ export async function GET(request: Request) {
       totalKasbon: kasbonHarian,
       saldoLaciKasir: saldoLaciKasir,
       historyStokIn,
-      historyStokOut,
-      debug: debugInfo
+      historyStokOut
     });
 
   } catch (error: any) {

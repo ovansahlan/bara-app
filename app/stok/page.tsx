@@ -2,48 +2,39 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, TrendingUp, Wallet, Box, 
   RefreshCw, Calendar, ArrowUpRight, ArrowDownRight, 
-  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Bug
+  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X
 } from 'lucide-react';
 
 export default function HomeDashboard() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [data, setData] = useState<any>(null);
   const [tanggalPilih, setTanggalPilih] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const fetchData = async (tanggalFilter: string, showDebugAlert = false) => {
+  // State untuk Modal Login Owner
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string>('');
+
+  const fetchData = async (tanggalFilter: string) => {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/dashboard?tanggal=${tanggalFilter}`);
       const result = await res.json();
-      
-      if (res.ok) {
-        setData(result);
-
-        // FITUR ALERT DEBUG JIKA DIPAKSA CEK
-        if (showDebugAlert) {
-          const dbg = result.debug;
-          if (result.omset.total === 0 && result.totalKeluar === 0 && result.totalKasbon === 0) {
-            alert(`⚠️ INFORMASI DEBUG:\n\n- Sheet Penjualan: Ditemukan ${dbg.penjualanTotalBaris} baris\n- Sheet Pengeluaran: Ditemukan ${dbg.pengeluaranTotalBaris} baris\n- Sheet Kasbon: Ditemukan ${dbg.kasbonTotalBaris} baris\n\nJika baris ditemukan tapi uangnya Rp 0, berarti sistem tidak menemukan transaksi pada tanggal:\n${dbg.tanggalTargetWeb} atau ${dbg.tanggalTargetID}\n\nPastikan format tanggal di Excel Anda cocok dengan tanggal di atas.`);
-          } else {
-            alert("✅ Data berhasil dibaca dengan baik dari database!");
-          }
-        }
-      } else {
-        alert("Gagal menarik data: " + result.error);
-      }
+      if (res.ok) setData(result);
     } catch (error) {
       console.error(error);
-      alert("Terjadi kendala jaringan saat menghubungi database.");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => { 
-    fetchData(tanggalPilih, false); 
+    fetchData(tanggalPilih); 
   }, [tanggalPilih]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat('id-ID').format(val);
@@ -53,9 +44,22 @@ export default function HomeDashboard() {
     return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   };
 
+  // Handler Login Portal Owner
+  const handleOwnerLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === '000000') {
+      setShowAuthModal(false);
+      router.push('/owner'); // Akan mengarahkan ke halaman /owner
+    } else {
+      setAuthError('Sandi tidak valid. Akses ditolak.');
+      setTimeout(() => setAuthError(''), 3000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-32">
       
+      {/* TOP HEADER */}
       <div className="bg-white border-b border-zinc-200 sticky top-0 z-30">
         <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
           <div>
@@ -71,20 +75,54 @@ export default function HomeDashboard() {
             </div>
           </div>
           <div className="flex gap-2">
-            {/* TOMBOL DEBUG (ICON SERANGGA) */}
-            <button onClick={() => fetchData(tanggalPilih, true)} className="p-2 bg-amber-50 text-amber-600 rounded-full hover:bg-amber-100 transition-all" title="Cek Kendala Data">
-              <Bug size={16} />
-            </button>
-            <button onClick={() => fetchData(tanggalPilih, false)} className="p-2 bg-zinc-100 text-zinc-500 rounded-full hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+            {/* TOMBOL REFRESH */}
+            <button onClick={() => fetchData(tanggalPilih)} className="p-2 bg-zinc-100 text-zinc-500 rounded-full hover:bg-indigo-50 hover:text-indigo-600 transition-all">
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            </button>
+            {/* TOMBOL PORTAL OWNER */}
+            <button onClick={() => setShowAuthModal(true)} className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 hover:scale-105 transition-all shadow-sm">
+              <Lock size={16} />
             </button>
           </div>
         </div>
       </div>
 
+      {/* MODAL LOGIN OWNER (Z-INDEX TINGGI) */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-rose-500 rounded-full bg-zinc-50 hover:bg-rose-50 transition-colors">
+              <X size={18} />
+            </button>
+            <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
+              <KeyRound size={24} />
+            </div>
+            <h3 className="text-lg font-black text-zinc-800 mb-1">Akses Portal Owner</h3>
+            <p className="text-xs text-zinc-500 mb-5">Silakan masukkan sandi keamanan Anda.</p>
+            
+            <form onSubmit={handleOwnerLogin} className="space-y-4">
+              <div>
+                <input 
+                  type="password" 
+                  autoFocus
+                  placeholder="••••••" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-4 bg-zinc-50 border-2 border-zinc-200 rounded-xl text-center text-xl tracking-[0.5em] font-black outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                />
+              </div>
+              {authError && <p className="text-[10px] text-rose-500 font-bold text-center animate-pulse">{authError}</p>}
+              <button type="submit" className="w-full py-3.5 bg-zinc-900 text-white font-bold rounded-xl active:scale-95 transition-transform shadow-lg shadow-zinc-900/20">
+                Masuk ke Portal
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md mx-auto px-4 mt-6 space-y-4">
         
-        {/* HIGHLIGHT: SALDO LACI KASIR (BULAN BERJALAN) */}
+        {/* HIGHLIGHT: SALDO LACI KASIR */}
         <div className="bg-zinc-900 text-white p-5 rounded-3xl border border-zinc-800 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-5 transform translate-x-4 -translate-y-4">
             <Landmark size={120} />
@@ -97,7 +135,7 @@ export default function HomeDashboard() {
             Rp {data ? formatIDR(data.saldoLaciKasir) : '0'}
           </h2>
           <p className="text-[9px] text-zinc-400 font-bold uppercase mt-2 tracking-wider">
-            Akumulasi (Tunai - Pengeluaran) Bulan {getNamaBulan(tanggalPilih)}
+            Akumulasi (Tunai - Biaya - Kasbon) di {getNamaBulan(tanggalPilih)}
           </p>
         </div>
 
@@ -135,7 +173,7 @@ export default function HomeDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-zinc-100 text-zinc-500 rounded-xl"><CreditCard size={16} /></div>
-              <div><p className="text-[9px] font-bold text-zinc-400 uppercase">EDC / Transfer</p><p className="text-xs font-black">Rp {data ? formatIDR(data.omset.edc) : '0'}</p></div>
+              <div><p className="text-[9px] font-bold text-zinc-400 uppercase">EDC / Trans</p><p className="text-xs font-black">Rp {data ? formatIDR(data.omset.edc) : '0'}</p></div>
             </div>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-zinc-100 text-zinc-500 rounded-xl"><ArrowUpRight size={16} /></div>
