@@ -28,19 +28,19 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Tarik data termasuk CurrentStock
-    const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut, resCurrentStock] = await Promise.all([
+    const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:E' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'CurrentStock!A:I' }).catch(() => ({ data: { values: [] } })) // <--- Tarik data aset gudang hpp
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
 
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     let pengeluaranHarian = 0;
     let kasbonHarian = 0;
+    
+    // VARIABEL ATURAN BULANAN (OTOMATIS RESET TIAP BULAN BARU)
     let akumulasiTunaiBulanan = 0;
     let akumulasiPengeluaranBulanan = 0;
     let akumulasiKasbonBulanan = 0;
@@ -49,6 +49,7 @@ export async function GET(request: Request) {
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
+
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiTunaiBulanan += parseInt(row[3] || '0', 10);
       }
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
       const nominal = parseInt((row[7] || '0').toString().replace(/\D/g, ''), 10) || 0;
+
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiPengeluaranBulanan += nominal;
       }
@@ -74,11 +76,12 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. KASBON
+    // 3. KASBON BULANAN SEBAGAI PENGURANG UANG LACI KASIR OPERASIONAL
     (resKasbon.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
       const nominal = parseInt((row[2] || '0').toString().replace(/\D/g, ''), 10) || 0;
+
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiKasbonBulanan += nominal;
       }
@@ -87,16 +90,35 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. HITUNG REALTIME CURRENT ASSET GUDANG (Dari tab CurrentStock kolom I / Index 8)
-    let totalNilaiAsetGudang = 0;
-    const barisAset = resCurrentStock.data.values || [];
-    barisAset.slice(1).forEach(row => {
-      // Index 8 adalah Nilai Aset rupiah sisa stok barang gudang
-      const nilaiAset = parseInt((row[8] || '0').toString().replace(/\D/g, ''), 10) || 0;
-      totalNilaiAsetGudang += nilaiAset;
+    // 4. HITUNG REAL-TIME MOVING AVERAGE ASET GUDANG AKTIF
+    const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+    
+    (resStokIn.data.values || []).slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      kalkulasiGudang[idStr].totalQtyIn += parseFloat(row[3] || '0') || 0;
+      kalkulasiGudang[idStr].totalCostIn += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
     });
 
+    (resStokOut.data.values || []).slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      kalkulasiGudang[idStr].totalQtyOut += parseFloat(row[3] || '0') || 0;
+    });
+
+    let totalNilaiAsetGudangAktif = 0;
+    Object.keys(kalkulasiGudang).forEach(id => {
+      const item = kalkulasiGudang[id];
+      const hrgRata2 = item.totalQtyIn > 0 ? (item.totalCostIn / item.totalQtyIn) : 0;
+      const sisaStok = item.totalQtyIn - item.totalQtyOut;
+      if (sisaStok > 0) totalNilaiAsetGudangAktif += (sisaStok * hrgRata2);
+    });
+
+    // AMBIL KAS NET: Tunai - Biaya Operasional - Uang Kasbon Keluar (Akan Ter-reset 0 otomatis di bulan baru)
     const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan;
+    
     const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
     const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
 
@@ -105,7 +127,7 @@ export async function GET(request: Request) {
       totalKeluar: pengeluaranHarian,
       totalKasbon: kasbonHarian,
       saldoLaciKasir: saldoLaciKasir,
-      nilaiAsetGudang: totalNilaiAsetGudang, // <--- Kirim ke frontend
+      nilaiAsetGudang: totalNilaiAsetGudangAktif,
       historyStokIn,
       historyStokOut
     });

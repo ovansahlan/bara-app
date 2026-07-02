@@ -27,21 +27,20 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const [resPenjualan, resPengeluaran, resBelanjaOwner, resStokIn, resStokOut, resCurrentStock] = await Promise.all([
+    // SINKRONISASI NAMA TAB SESUAI PERMINTAAN OWNER
+    const [resPenjualan, resPengeluaran, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:D' }).catch(() => ({ data: { values: [] } })), 
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock-In!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stock-Out!A:I' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'CurrentStock!A:I' }).catch(() => ({ data: { values: [] } }))
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
 
     let totalOmsetBulanIni = 0;
     let totalPengeluaranKruBulanIni = 0;
     let totalPengeluaranOwnerBulanIni = 0;
-    let totalBelanjaGudangBulanIni = 0;
 
-    // 1. Omset Bulanan
+    // A. HITUNG OMSET BULANAN (Kolom H / Index 7)
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -49,7 +48,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. Pengeluaran Kru Bulanan
+    // B. HITUNG BIAYA OPERASIONAL KRU (Kolom H / Index 7)
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -57,7 +56,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Pengeluaran Belanja Owner Bulanan
+    // C. HITUNG BELANJA PRIBADI OWNER (Kolom D / Index 3 di sheet Belanja_Owner)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -65,36 +64,64 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. Hitung Total Historis Belanja Gudang (Stock-In) Bulan Ini
-    const rowsStokIn = resStokIn.data.values || [];
-    rowsStokIn.slice(1).forEach(row => {
-      const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
-        totalBelanjaGudangBulanIni += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10);
+    // D. LOGIKA KUSTOM MOVING AVERAGE & REAL-TIME ASSET TRACKING
+    const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+
+    // 1. Ambil seluruh pasokan masuk historis
+    const rowsIn = resStokIn.data.values || [];
+    rowsIn.slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      const qtyIn = parseFloat(row[3] || '0') || 0;
+      const totalBelanjaItem = parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
+
+      if (!kalkulasiGudang[idStr]) {
+        kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      }
+      kalkulasiGudang[idStr].totalQtyIn += qtyIn;
+      kalkulasiGudang[idStr].totalCostIn += totalBelanjaItem;
+    });
+
+    // 2. Ambil seluruh bahan keluar historis
+    const rowsOut = resStokOut.data.values || [];
+    rowsOut.slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      const qtyOut = parseFloat(row[3] || '0') || 0;
+
+      if (!kalkulasiGudang[idStr]) {
+        kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      }
+      kalkulasiGudang[idStr].totalQtyOut += qtyOut;
+    });
+
+    // 3. Gabungkan menjadi Nilai Aset Kumulatif Gudang Berjalan
+    let totalNilaiAsetGudangAktif = 0;
+    Object.keys(kalkulasiGudang).forEach(id => {
+      const item = kalkulasiGudang[id];
+      const hargaRataRataBergerak = item.totalQtyIn > 0 ? (item.totalCostIn / item.totalQtyIn) : 0;
+      const sisaStokFisik = item.totalQtyIn - item.totalQtyOut;
+
+      if (sisaStokFisik > 0) {
+        totalNilaiAsetGudangAktif += (sisaStokFisik * hargaRataRataBergerak);
       }
     });
 
-    // 5. Hitung Nilai Aset Bahan Baku Aktif Gudang Saat Ini
-    let totalNilaiAsetGudang = 0;
-    (resCurrentStock.data.values || []).slice(1).forEach(row => {
-      totalNilaiAsetGudang += parseInt((row[8] || '0').toString().replace(/\D/g, ''), 10) || 0;
-    });
+    // E. FORMULA KAS GUDANG ASLI KESPAKATAN OWNER
+    const sisaKasGudangFisik = 8000000 - totalNilaiAsetGudangAktif;
+    const sisaSaldoBersihBara = totalOmsetBulanIni - totalPengeluaranKruBulanIni - totalPengeluaranOwnerBulanIni;
 
-    // FORMULA STRATEGIS SINKRONISASI MODAL 8 JUTA
-    const sisaKasGudangTunai = 8000000 - totalBelanjaGudangBulanIni;
-    const sisaSaldoBersihKopiBara = totalOmsetBulanIni - totalPengeluaranKruBulanIni - totalPengeluaranOwnerBulanIni;
-
-    const mutasiMasuk = rowsStokIn.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] }));
-    const mutasiKeluar = (resStokOut.data.values || []).slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] }));
+    const mutasiMasuk = rowsIn.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] }));
+    const mutasiKeluar = rowsOut.slice(-4).reverse().map(r => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[5] }));
 
     return NextResponse.json({
       metrics: {
         omset: totalOmsetBulanIni,
         pengeluaranKru: totalPengeluaranKruBulanIni,
         pengeluaranOwner: totalPengeluaranOwnerBulanIni,
-        sisaSaldo: sisaSaldoBersihKopiBara,
-        saldoGudangKas: sisaKasGudangTunai, // Sisa Uang Fisik Gudang
-        nilaiAsetGudang: totalNilaiAsetGudang // Sisa Nilai Barang Gudang
+        sisaSaldo: sisaSaldoBersihBara,
+        saldoGudangKas: sisaKasGudangFisik,      // Sisa Uang Tunai di Box Gudang
+        nilaiAsetGudang: totalNilaiAsetGudangAktif // Total Nilai Barang di Gudang (HPP Moving Average)
       },
       stokMasuk: mutasiMasuk,
       stokKeluar: mutasiKeluar
@@ -102,7 +129,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('API Owner GET Error:', error);
-    return NextResponse.json({ error: 'Gagal memproses data portal.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memproses data.' }, { status: 500 });
   }
 }
 
@@ -131,21 +158,21 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
-    // Format Baris Baru Sesuai DB_Belanja_Owner: Tanggal | Kategori Internal | Keterangan Lengkap | Nominal (Rp)
-    const barisBaru = [formatTanggalID, kategori, keterangan, nominal];
+    // FORMAT ROW BARU: Tanggal | Kategori Internal | Keterangan Lengkap | Nominal (Rp)
+    const dataBaris = [formatTanggalID, kategori, keterangan, nominal];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Belanja_Owner!A:D',
+      range: 'Belanja_Owner!A:D', // LINKING SUDAH 100% AKTIF KE SHEET INI
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [barisBaru] },
+      requestBody: { values: [dataBaris] },
     });
 
-    return NextResponse.json({ success: true, message: 'Investasi/Belanja Owner berhasil dikunci ke spreadsheet!' });
+    return NextResponse.json({ success: true, message: 'Catatan Belanja Owner berhasil dikunci ke spreadsheet!' });
 
   } catch (error: any) {
     console.error('API Owner POST Error:', error);
-    return NextResponse.json({ error: 'Gagal mencatat belanja pribadi owner.', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal menyimpan data.', details: error.message }, { status: 500 });
   }
 }

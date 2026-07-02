@@ -20,74 +20,70 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Tarik data CurrentStock DAN Master Product sekaligus
-    const [resCurrentStock, resMasterProduct] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'CurrentStock!A:J' }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master Product!A:E' }) // Sampai E untuk ambil kolom Batas Minimum
+    const [resMasterProduct, resStokIn, resStokOut] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master Product!A:E' }), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' })
     ]);
 
-    // 1. Buat "Kamus" Batas Minimum per ID dari Master Product
     const thresholdMap: Record<string, number> = {};
-    const barisMaster = resMasterProduct.data.values || [];
-    
-    barisMaster.slice(1).forEach(row => {
+    (resMasterProduct.data.values || []).slice(1).forEach(row => {
       const id = row[0] ? row[0].toString().trim() : '';
-      // Jika Kolom E kosong, default alert adalah 10
       const batas = parseInt(row[4] || '10', 10);
-      if (id && !isNaN(batas)) {
-        thresholdMap[id] = batas;
-      }
+      if (id) thresholdMap[id] = batas;
     });
 
-    // 2. Baca Sisa Stok dan Bandingkan dengan Kamus Batas Minimum
-    const rows = resCurrentStock.data.values || [];
+    const kalkulasiGudang: Record<string, { nama: string; totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+
+    (resStokIn.data.values || []).slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { nama: row[2] || 'Item', totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      kalkulasiGudang[idStr].totalQtyIn += parseFloat(row[3] || '0') || 0;
+      kalkulasiGudang[idStr].totalCostIn += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
+    });
+
+    (resStokOut.data.values || []).slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr) return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { nama: row[2] || 'Item', totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
+      kalkulasiGudang[idStr].totalQtyOut += parseFloat(row[3] || '0') || 0;
+    });
+
     let totalAset = 0;
     const items: any[] = [];
     const stockAlerts: any[] = [];
 
-    rows.slice(1).forEach(row => {
-      if (!row[0]) return;
-      
-      const id = row[0].toString().trim();
-      const nama = row[1] || 'Tidak Diketahui';
-      const totalMasuk = parseInt(row[2] || '0', 10);
-      const totalKeluar = parseInt(row[3] || '0', 10);
-      const stockAkhir = parseInt(row[5] || '0', 10);
-      const nilaiAset = parseInt((row[8] || '0').toString().replace(/\D/g, ''), 10) || 0;
+    Object.keys(kalkulasiGudang).forEach(id => {
+      const dataItem = kalkulasiGudang[id];
+      const hrgRata2 = dataItem.totalQtyIn > 0 ? (dataItem.totalCostIn / dataItem.totalQtyIn) : 0;
+      const sisaStok = dataItem.totalQtyIn - dataItem.totalQtyOut;
+      const nilaiRupiahAset = sisaStok > 0 ? Math.round(sisaStok * hrgRata2) : 0;
 
-      totalAset += nilaiAset;
-
-      // Cari batas minimum custom dari kamus, jika tidak ketemu pakai default 10
+      totalAset += nilaiRupiahAset;
       const batasAman = thresholdMap[id] !== undefined ? thresholdMap[id] : 10;
 
-      const detailItem = {
+      const detail = {
         id,
-        nama,
-        masuk: totalMasuk,
-        keluar: totalKeluar,
-        sisa: stockAkhir,
-        nilai: nilaiAset,
-        batasAman: batasAman // Bawa data batas aman ke frontend
+        nama: dataItem.nama,
+        masuk: dataItem.totalQtyIn,
+        keluar: dataItem.totalQtyOut,
+        sisa: sisaStok,
+        nilai: nilaiRupiahAset,
+        batasAman
       };
 
-      items.push(detailItem);
+      items.push(detail);
 
-      // ALGORITMA STOCK ALERT KUSTOM
-      // Jika stok sisa <= batas custom dan barang tersebut pernah ada mutasi
-      if (stockAkhir <= batasAman && (totalMasuk > 0 || stockAkhir > 0)) {
-        stockAlerts.push(detailItem);
+      if (sisaStok <= batasAman && (dataItem.totalQtyIn > 0 || sisaStok > 0)) {
+        stockAlerts.push(detail);
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      totalAset,
-      items,
-      stockAlerts
-    });
+    return NextResponse.json({ success: true, totalAset, items, stockAlerts });
 
   } catch (error: any) {
-    console.error('API Aset Error:', error);
-    return NextResponse.json({ error: 'Gagal memuat rincian aset gudang.' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Gagal memproses asset.' }, { status: 500 });
   }
 }

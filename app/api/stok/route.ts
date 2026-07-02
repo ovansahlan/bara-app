@@ -20,10 +20,10 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // Hanya membaca Master Data Barang
+    // Baca Master Product (A sampai E karena ada Batas Minimum di kolom E)
     const resMaster = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'DB_Produk!A:D', 
+      range: 'Master Product!A:E',
     });
 
     const masterRows = resMaster.data.values || [];
@@ -42,14 +42,13 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('API Stok GET Error:', error);
-    return NextResponse.json({ error: 'Gagal memuat DB_Produk.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat Master Product.' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // Menerima data masal dari frontend
     const { type, tanggal, penginput, keterangan, lokasiTujuan, daftarStok } = body;
 
     if (!daftarStok || !Array.isArray(daftarStok) || daftarStok.length === 0) {
@@ -73,15 +72,18 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
+    // Format Tanggal Web ke Format Indonesia DD/MM/YYYY
+    const [year, month, day] = tanggal.split('-');
+    const formatTanggalID = `${day}/${month}/${year}`;
+    
     let rangeTarget = '';
     let kumpulanBarisBaru: any[] = [];
 
-    // Menyusun data array menjadi format baris Sheets
     if (type === 'in') {
       rangeTarget = 'Stok_Masuk!A:G';
       // Format Stok_Masuk: Tanggal | ID Produk | Nama Barang | Qty Masuk | Harga Beli | Total Belanja | Penginput
       kumpulanBarisBaru = daftarStok.map((item: any) => [
-        tanggal, 
+        formatTanggalID, 
         item.idProduk, 
         item.namaBarang, 
         item.kuantiti, 
@@ -90,31 +92,32 @@ export async function POST(request: Request) {
         penginput
       ]);
     } else if (type === 'out') {
-      rangeTarget = 'Stok_Keluar!A:G';
-      // Format Stok_Keluar: Tanggal | ID Produk | Nama Barang | Qty Keluar | Keterangan | Lokasi Tujuan | Penginput
+      rangeTarget = 'Stok_Keluar!A:I';
+      // Format Stok_Keluar Anda: Tanggal | ID | Nama | Qty | Keterangan | Penginput | Harga/Pcs | Total | Lokasi
       kumpulanBarisBaru = daftarStok.map((item: any) => [
-        tanggal, 
+        formatTanggalID, 
         item.idProduk, 
         item.namaBarang, 
         item.kuantiti, 
         keterangan, 
-        lokasiTujuan, 
-        penginput
+        penginput, 
+        0, // Harga Modal Rata2 (Bisa dikosongkan 0 karena dihitung otomatis di dashboard)
+        0, // Total Modal Terpakai
+        lokasiTujuan
       ]);
     } else {
       return NextResponse.json({ error: 'Aksi logistik tidak dikenali.' }, { status: 400 });
     }
 
-    // Eksekusi data batch (masal) ke Google Sheets
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: rangeTarget,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS', // Memaksa membuat baris baru ke bawah
+      insertDataOption: 'INSERT_ROWS', // Memaksa baris turun ke bawah
       requestBody: { values: kumpulanBarisBaru },
     });
 
-    return NextResponse.json({ success: true, message: `${daftarStok.length} item mutasi ${type === 'in' ? 'Stok Masuk' : 'Stok Keluar'} berhasil dikunci!` });
+    return NextResponse.json({ success: true, message: `${daftarStok.length} item mutasi ${type === 'in' ? 'Stok Masuk' : 'Stok Keluar'} berhasil disimpan!` });
 
   } catch (error: any) {
     console.error('API Stok POST Error:', error);
