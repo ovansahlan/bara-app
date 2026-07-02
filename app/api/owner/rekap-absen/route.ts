@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const month = String(localDate.getMonth() + 1).padStart(2, '0');
     const year = localDate.getFullYear();
     
-    // TWEAK: Tiga jenis jebakan format Google Sheets kita antisipasi semua
+    // TWEAK: Tiga jenis jebakan format Google  kita antisipasi semua
     const formatGlobal = `${year}-${month}`; // 2026-07
     const formatLokal1 = `/${month}/${year}`; // /07/2026
     const formatLokal2 = `-${month}-${year}`; // -07-2026
