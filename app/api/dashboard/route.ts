@@ -93,20 +93,22 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. Moving Average Gudang HPP + FIX PEMBULATAN MATEMATIKA
+    // 4. Moving Average Gudang HPP dengan Pembulatan Matematika Bulat
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
+    const rawStokIn = resStokIn.data.values || [];
+    const rawStokOut = resStokOut.data.values || [];
     
-    (resStokIn.data.values || []).slice(1).forEach(row => {
+    rawStokIn.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr || idStr.toLowerCase() === 'id produk') return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyIn += parseQty(row[3]);
       kalkulasiGudang[idStr].totalCostIn += parseRupiah(row[5]);
     });
 
-    (resStokOut.data.values || []).slice(1).forEach(row => {
+    rawStokOut.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr || idStr.toLowerCase() === 'id produk') return;
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
     });
@@ -117,7 +119,6 @@ export async function GET(request: Request) {
       const hrgRata2 = item.totalQtyIn > 0 ? (item.totalCostIn / item.totalQtyIn) : 0;
       const sisaStok = item.totalQtyIn - item.totalQtyOut;
       if (sisaStok > 0) {
-        // KODE SAKTI: Membulatkan nilai aset per item ke rupiah terdekat
         totalNilaiAsetGudangAktif += Math.round(sisaStok * hrgRata2);
       }
     });
@@ -125,8 +126,9 @@ export async function GET(request: Request) {
     totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
     const saldoLaciKasir = Math.round(akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan);
     
-    const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
-    const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
+    // KODE PERBAIKAN: Memastikan Baris Header Judul Kolom Dibuang dari Histori Tampilan Depan
+    const historyStokInFiltered = rawStokIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
+    const historyStokOutFiltered = rawStokOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
 
     return NextResponse.json({
       omset: omsetHarian,
@@ -134,8 +136,8 @@ export async function GET(request: Request) {
       totalKasbon: kasbonHarian,
       saldoLaciKasir: saldoLaciKasir,
       nilaiAsetGudang: totalNilaiAsetGudangAktif,
-      historyStokIn,
-      historyStokOut
+      historyStokIn: historyStokInFiltered.slice(-5).reverse(),   // Mengambil 5 mutasi asli terbaru
+      historyStokOut: historyStokOutFiltered.slice(-5).reverse() // Mengambil 5 mutasi asli terbaru
     });
 
   } catch (error: any) {
