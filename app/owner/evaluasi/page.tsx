@@ -3,13 +3,17 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Award, ShieldCheck, RefreshCw, MessageSquareQuote } from 'lucide-react';
+import { ChevronLeft, Award, ShieldCheck, RefreshCw, MessageSquareQuote, FileClock, AlertTriangle } from 'lucide-react';
 
 export default function FormEvaluasiOwner() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [daftarKru, setDaftarKru] = useState<any[]>([]);
   const [loadingKru, setLoadingKru] = useState<boolean>(true);
+
+  // State untuk rekap absensi otomatis
+  const [rekapAbsen, setRekapAbsen] = useState<any>(null);
+  const [loadingRekap, setLoadingRekap] = useState<boolean>(false);
 
   const [form, setForm] = useState({
     namaKru: '',
@@ -18,7 +22,6 @@ export default function FormEvaluasiOwner() {
     catatan: ''
   });
 
-  // Ambil semua master kru aktif (Kedai + Gerobak) dari API
   useEffect(() => {
     const fetchSemuaKru = async () => {
       try {
@@ -33,6 +36,28 @@ export default function FormEvaluasiOwner() {
     };
     fetchSemuaKru();
   }, []);
+
+  // Tarik data absen otomatis setiap kali Bos memilih nama kru
+  useEffect(() => {
+    if (!form.namaKru) {
+      setRekapAbsen(null);
+      return;
+    }
+
+    const fetchRekap = async () => {
+      setLoadingRekap(true);
+      try {
+        const res = await fetch(`/api/owner/rekap-absen?nama=${form.namaKru}`);
+        const data = await res.json();
+        if (data.success) setRekapAbsen(data.data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingRekap(false);
+      }
+    };
+    fetchRekap();
+  }, [form.namaKru]);
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -61,7 +86,8 @@ export default function FormEvaluasiOwner() {
       if (response.ok) {
         alert(`✅ Evaluasi & Overtime untuk ${form.namaKru} Berhasil Dikunci!`);
         setForm({ namaKru: '', tunjangan: '', overtime: '', catatan: '' });
-        router.push('/');
+        setRekapAbsen(null);
+        router.push('/owner');
       } else {
         alert("❌ Gagal menyimpan data evaluasi.");
       }
@@ -73,16 +99,16 @@ export default function FormEvaluasiOwner() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 pb-24 font-sans flex flex-col justify-center px-4">
+    <div className="min-h-screen bg-slate-900 text-slate-100 pb-24 font-sans flex flex-col justify-center px-4 pt-8">
       <div className="w-full max-w-md mx-auto space-y-5">
         
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <Link href="/" className="p-2.5 bg-slate-800 text-slate-400 rounded-full hover:text-white transition-colors">
+          <Link href="/owner" className="p-2.5 bg-slate-800 text-slate-400 rounded-full hover:text-white transition-colors">
             <ChevronLeft size={20} />
           </Link>
           <h1 className="text-xs font-black tracking-widest text-slate-400 uppercase flex items-center gap-1.5">
-            <Award size={16} className="text-indigo-400" /> Konsol Evaluasi Owner
+            <Award size={16} className="text-indigo-400" /> Konsol HRD Evaluasi
           </h1>
           <div className="w-10 h-10"></div>
         </div>
@@ -106,6 +132,44 @@ export default function FormEvaluasiOwner() {
                 ))}
               </select>
             </div>
+
+            {/* BOX ANALISIS ABSEN (MUNCUL OTOMATIS) */}
+            {form.namaKru && (
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl p-4 animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center gap-2 mb-3 border-b border-slate-700/50 pb-2">
+                  <FileClock size={14} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Analytics Absen Bulan Ini</span>
+                </div>
+                
+                {loadingRekap ? (
+                  <div className="text-center text-[10px] text-slate-500 py-4 animate-pulse">Menghitung data presensi...</div>
+                ) : rekapAbsen ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
+                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">Tepat Waktu</span>
+                      <p className="text-sm font-black text-slate-200">{rekapAbsen.tepatWaktu} <span className="text-[9px] text-slate-500 font-medium">Hari</span></p>
+                    </div>
+                    <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
+                      <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider block">Telat / Kesiangan</span>
+                      <p className="text-sm font-black text-slate-200">{rekapAbsen.telat} <span className="text-[9px] text-slate-500 font-medium">Hari</span></p>
+                    </div>
+                    <div className="bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/30 col-span-2 flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block mb-0.5">Potensi Overtime</span>
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-200">
+                          <span>Prep Dapur: <span className="text-indigo-400">{rekapAbsen.prepDapur}x</span></span>
+                          <span className="text-slate-600">|</span>
+                          <span>Full Day: <span className="text-indigo-400">{rekapAbsen.fullDay}x</span></span>
+                        </div>
+                      </div>
+                      <AlertTriangle size={20} className="text-indigo-500/50" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-[10px] text-rose-500 py-2">Data absensi tidak ditemukan.</div>
+                )}
+              </div>
+            )}
 
             {/* 2. INPUT TUNJANGAN OBJEKTIF */}
             <div>
@@ -150,7 +214,7 @@ export default function FormEvaluasiOwner() {
                 </div>
                 <textarea 
                   rows={3}
-                  placeholder="Contoh: Bulan ini performa pelayananmu sangat memuaskan, pertahankan!"
+                  placeholder="Contoh: Bulan ini kinerjamu bagus, pertahankan! Uang lembur sudah ditambahkan untuk prep dapur."
                   value={form.catatan}
                   onChange={(e) => setForm({...form, catatan: e.target.value})}
                   className="w-full py-3.5 pr-4 bg-transparent text-xs font-medium text-slate-300 outline-none resize-none leading-relaxed"
