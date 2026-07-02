@@ -91,29 +91,61 @@ export async function POST(request: Request) {
         item.totalBelanja, 
         penginput
       ]);
+
     } else if (type === 'out') {
       rangeTarget = 'Stok_Keluar!A:I';
-      // Format Stok_Keluar Anda: Tanggal | ID | Nama | Qty | Keterangan | Penginput | Harga/Pcs | Total | Lokasi
-      kumpulanBarisBaru = daftarStok.map((item: any) => [
-        formatTanggalID, 
-        item.idProduk, 
-        item.namaBarang, 
-        item.kuantiti, 
-        keterangan, 
-        penginput, 
-        0, // Harga Modal Rata2 (Bisa dikosongkan 0 karena dihitung otomatis di dashboard)
-        0, // Total Modal Terpakai
-        lokasiTujuan
-      ]);
+      
+      // LOGIKA BARU: HITUNG HPP OTOMATIS SAAT TOMBOL SIMPAN DITEKAN
+      // 1. Panggil riwayat Stok Masuk untuk mencari Harga Rata-Rata (Moving Average)
+      const resStokIn = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'Stok_Masuk!A:G'
+      });
+      
+      const kalkulasiHPP: Record<string, { totalQtyIn: number; totalCostIn: number }> = {};
+      (resStokIn.data.values || []).slice(1).forEach(row => {
+        const idStr = row[1] ? row[1].toString().trim() : '';
+        if (!idStr) return;
+        if (!kalkulasiHPP[idStr]) kalkulasiHPP[idStr] = { totalQtyIn: 0, totalCostIn: 0 };
+        kalkulasiHPP[idStr].totalQtyIn += parseFloat(row[3] || '0') || 0;
+        kalkulasiHPP[idStr].totalCostIn += parseInt((row[5] || '0').toString().replace(/\D/g, ''), 10) || 0;
+      });
+
+      // 2. Susun baris keluaran dengan Nominal Uang yang sudah dihitung
+      kumpulanBarisBaru = daftarStok.map((item: any) => {
+        const id = item.idProduk;
+        const dataIn = kalkulasiHPP[id] || { totalQtyIn: 0, totalCostIn: 0 };
+        
+        // Rumus Harga Rata-Rata
+        const hargaRataRata = dataIn.totalQtyIn > 0 ? Math.round(dataIn.totalCostIn / dataIn.totalQtyIn) : 0;
+        
+        // Rumus Total Modal Terpakai
+        const totalModalTerpakai = Math.round(hargaRataRata * item.kuantiti);
+
+        // Format: Tanggal | ID | Nama | Qty | Keterangan | Penginput | Harga Rata2/Pcs | Total Modal Terpakai | Lokasi Tujuan
+        return [
+          formatTanggalID, 
+          item.idProduk, 
+          item.namaBarang, 
+          item.kuantiti, 
+          keterangan, 
+          penginput, 
+          hargaRataRata, 
+          totalModalTerpakai, 
+          lokasiTujuan
+        ];
+      });
+
     } else {
       return NextResponse.json({ error: 'Aksi logistik tidak dikenali.' }, { status: 400 });
     }
 
+    // Tulis ke Google Sheets
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: rangeTarget,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS', // Memaksa baris turun ke bawah
+      insertDataOption: 'INSERT_ROWS', 
       requestBody: { values: kumpulanBarisBaru },
     });
 
