@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, TrendingUp, Wallet, Box, 
   RefreshCw, Calendar, ArrowUpRight, ArrowDownRight, 
-  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers, MessageCircle, Store, BookOpen,Award
+  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers, MessageCircle, Store, BookOpen,
 } from 'lucide-react';
 
 export default function HomeDashboard() {
