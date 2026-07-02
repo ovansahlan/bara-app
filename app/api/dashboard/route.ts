@@ -28,29 +28,27 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut] = await Promise.all([
+    // Tarik data termasuk CurrentStock
+    const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut, resCurrentStock] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Kasbon!A:E' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:H' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:H' }).catch(() => ({ data: { values: [] } }))
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:G' }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'CurrentStock!A:I' }).catch(() => ({ data: { values: [] } })) // <--- Tarik data aset gudang hpp
     ]);
 
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     let pengeluaranHarian = 0;
     let kasbonHarian = 0;
-    
-    // Variabel Akumulasi Bulanan untuk Laci Kasir (Reset tiap bulan baru)
     let akumulasiTunaiBulanan = 0;
     let akumulasiPengeluaranBulanan = 0;
     let akumulasiKasbonBulanan = 0;
 
     // 1. PENJUALAN
-    const barisPenjualan = resPenjualan.data.values || [];
-    barisPenjualan.slice(1).forEach(row => {
+    (resPenjualan.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiTunaiBulanan += parseInt(row[3] || '0', 10);
       }
@@ -64,13 +62,10 @@ export async function GET(request: Request) {
     });
 
     // 2. PENGELUARAN (Kolom H / Index 7)
-    const barisPengeluaran = resPengeluaran.data.values || [];
-    barisPengeluaran.slice(1).forEach(row => {
+    (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-
       const nominal = parseInt((row[7] || '0').toString().replace(/\D/g, ''), 10) || 0;
-
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiPengeluaranBulanan += nominal;
       }
@@ -79,25 +74,29 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. KASBON (Kolom C / Index 2)
-    const barisKasbon = resKasbon.data.values || [];
-    barisKasbon.slice(1).forEach(row => {
+    // 3. KASBON
+    (resKasbon.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
-
       const nominal = parseInt((row[2] || '0').toString().replace(/\D/g, ''), 10) || 0;
-
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
-         akumulasiKasbonBulanan += nominal;
+        akumulasiKasbonBulanan += nominal;
       }
       if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
         kasbonHarian += nominal;
       }
     });
 
-    // RUMUS LACI KASIR: Total Tunai Bulan Ini - (Pengeluaran Bulan Ini + Kasbon Bulan Ini)
-    const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan;
+    // 4. HITUNG REALTIME CURRENT ASSET GUDANG (Dari tab CurrentStock kolom I / Index 8)
+    let totalNilaiAsetGudang = 0;
+    const barisAset = resCurrentStock.data.values || [];
+    barisAset.slice(1).forEach(row => {
+      // Index 8 adalah Nilai Aset rupiah sisa stok barang gudang
+      const nilaiAset = parseInt((row[8] || '0').toString().replace(/\D/g, ''), 10) || 0;
+      totalNilaiAsetGudang += nilaiAset;
+    });
 
+    const saldoLaciKasir = akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan;
     const historyStokIn = (resStokIn.data.values || []).slice(-5).reverse();
     const historyStokOut = (resStokOut.data.values || []).slice(-5).reverse();
 
@@ -106,12 +105,13 @@ export async function GET(request: Request) {
       totalKeluar: pengeluaranHarian,
       totalKasbon: kasbonHarian,
       saldoLaciKasir: saldoLaciKasir,
+      nilaiAsetGudang: totalNilaiAsetGudang, // <--- Kirim ke frontend
       historyStokIn,
       historyStokOut
     });
 
   } catch (error: any) {
     console.error('API Dashboard Error:', error);
-    return NextResponse.json({ error: 'Gagal memuat ringkasan dashboard.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat ringkasan.' }, { status: 500 });
   }
 }
