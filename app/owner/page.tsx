@@ -123,6 +123,21 @@ export default function DashboardOwner() {
           </div>
         </Link>
       </div>
+
+      <Link 
+  href="/owner/slip" 
+  className="bg-slate-800/60 p-5 rounded-3xl border border-slate-700/50 hover:border-emerald-500 hover:bg-slate-800 transition-all flex flex-col justify-between min-h-[140px] group shadow-lg"
+>
+  <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl w-fit shadow-inner">
+    <FileDown size={22} className="group-hover:scale-110 transition-transform" />
+  </div>
+  <div>
+    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">HRD Panel</p>
+    <h3 className="text-sm font-black text-slate-200 group-hover:text-emerald-400 transition-colors">
+      Cetak Semua Slip Gaji
+    </h3>
+  </div>
+</Link>
       {/* ------------------------------------------------------- */}
         {/* TOMBOL LINK INPUT BELANJA OWNER */}
         <Link href="/owner/belanja" className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-5 rounded-3xl flex justify-between items-center hover:shadow-md transition-all group">
