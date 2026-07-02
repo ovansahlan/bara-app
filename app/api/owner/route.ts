@@ -48,10 +48,10 @@ export async function GET(request: Request) {
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    // BARU: Penambahan variabel penampung totalNilaiPemakaian
     const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[], totalNilaiPemakaian: 0 };
     const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0, pemakaian: [] as any[], totalNilaiPemakaian: 0 };
 
+    // 1-5. Hitung Finansial Pemasukan & Pengeluaran Kas
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) kedai.omset += parseRupiah(row[7]);
@@ -77,9 +77,7 @@ export async function GET(request: Request) {
       }
     });
 
-    kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner);
-    gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner);
-
+    // 6. Kalkulasi Pemakaian Gudang (HPP)
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     const rekapPakaiKedai: Record<string, { nama: string; qty: number; nilai: number }> = {};
     const rekapPakaiGerobak: Record<string, { nama: string; qty: number; nilai: number }> = {};
@@ -123,9 +121,12 @@ export async function GET(request: Request) {
     kedai.pemakaian = Object.values(rekapPakaiKedai).sort((a, b) => b.qty - a.qty);
     gerobak.pemakaian = Object.values(rekapPakaiGerobak).sort((a, b) => b.qty - a.qty);
 
-    // BARU: Menjumlahkan semua total nilai pemakaian di frontend untuk kartu laporan
     kedai.totalNilaiPemakaian = kedai.pemakaian.reduce((sum, item) => sum + item.nilai, 0);
     gerobak.totalNilaiPemakaian = gerobak.pemakaian.reduce((sum, item) => sum + item.nilai, 0);
+
+    // KODE BARU: Kalkulasi Laba Bersih Memotong HPP Logistik
+    kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner - kedai.totalNilaiPemakaian);
+    gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner - gerobak.totalNilaiPemakaian);
 
     let totalNilaiAsetGudangAktif = 0;
     Object.keys(kalkulasiGudang).forEach(id => {
@@ -145,9 +146,7 @@ export async function GET(request: Request) {
       metricsGudang: {
         nilaiAsetGudang: totalNilaiAsetGudangAktif,
         saldoGudangKas: sisaKasGudangFisik
-      },
-      stokMasuk: rowsIn.slice(-5).filter((r:any) => r[1] && r[1].toLowerCase() !== 'id produk').reverse().map((r:any) => ({ tgl: r[0], nama: r[2], qty: r[3], pic: r[6] })),
-      stokKeluar: rowsOut.slice(-5).filter((r:any) => r[1] && r[1].toLowerCase() !== 'id produk').reverse().map((r:any) => ({ tgl: r[0], nama: r[2], qty: r[3], tujuan: r[8] || r[4] }))
+      }
     });
 
   } catch (error: any) {

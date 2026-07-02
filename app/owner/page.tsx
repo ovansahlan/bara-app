@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   RefreshCw, Calendar, TrendingUp, Wallet, PlusCircle, Landmark, 
-  PackagePlus, PackageMinus, ShieldCheck, LogOut, ArrowRightLeft, Boxes
+  PackageMinus, ShieldCheck, LogOut, Boxes
 } from 'lucide-react';
 
 export default function DashboardOwner() {
@@ -101,7 +101,7 @@ export default function DashboardOwner() {
           
           <div className="mt-5 pt-3 border-t border-zinc-700/50 flex justify-between items-center text-[9px] font-bold text-zinc-500 uppercase tracking-wider relative z-10">
             <span>Bulan: {getLabelBulan(bulanPilih)}</span>
-            <span>Gross - Kru - Owner</span>
+            <span>Gross - Kru - Owner - HPP</span>
           </div>
         </div>
 
@@ -146,7 +146,6 @@ export default function DashboardOwner() {
               </div>
             </div>
 
-            {/* KARTU BARU: TOTAL HPP (MODAL LOGISTIK) GABUNGAN */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 shadow-sm flex justify-between items-center">
               <div>
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total HPP Kedai</p>
@@ -202,7 +201,6 @@ export default function DashboardOwner() {
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
-            {/* KARTU BARU: TOTAL MODAL HPP LOGISTIK KEDAI */}
             <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100 shadow-sm col-span-2 flex items-center justify-between mt-1">
               <div>
                 <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block mb-1">Total Modal Logistik (HPP)</span>
@@ -263,7 +261,6 @@ export default function DashboardOwner() {
               <Wallet size={24} className="text-rose-400 opacity-50" />
             </div>
 
-            {/* KARTU BARU: TOTAL MODAL HPP LOGISTIK GEROBAK */}
             <div className="bg-amber-50/50 p-5 rounded-3xl border border-amber-100 shadow-sm col-span-2 flex items-center justify-between mt-1">
               <div>
                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Total Modal Logistik (HPP)</span>
@@ -312,54 +309,6 @@ export default function DashboardOwner() {
             <div className="flex items-center gap-2 text-zinc-800 font-black text-sm">
               <div className="p-1.5 bg-slate-100 text-slate-500 rounded-md"><Landmark size={12} /></div>
               Rp {data ? formatIDR(data.metricsGudang.saldoGudangKas) : '0'}
-            </div>
-          </div>
-        </div>
-
-        {/* LOG PERGERAKAN STOK GUDANG TERBARU */}
-        <div className="space-y-3 pt-4">
-          <div className="flex items-center gap-2 px-2 text-zinc-400">
-            <ArrowRightLeft size={14} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Aktivitas Gudang Terpusat</span>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden">
-            <div className="p-4 bg-emerald-50/50 border-b border-zinc-100 flex items-center gap-2">
-              <PackagePlus size={16} className="text-emerald-600" />
-              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Bahan Masuk (In)</span>
-            </div>
-            <div className="divide-y divide-zinc-50 text-xs">
-              {data?.stokMasuk && data.stokMasuk.length > 0 ? data.stokMasuk.map((row: any, i: number) => (
-                <div key={i} className="p-4 flex justify-between items-center hover:bg-zinc-50 transition-colors">
-                  <div>
-                    <p className="font-bold text-zinc-800">{row.nama}</p>
-                    <p className="text-[9px] text-zinc-400 font-semibold mt-1">Oleh {row.pic} • {row.tgl}</p>
-                  </div>
-                  <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg">+{row.qty}</span>
-                </div>
-              )) : (
-                <p className="p-5 text-center text-[10px] text-zinc-400 italic">Tidak ada mutasi masuk.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-sm overflow-hidden">
-            <div className="p-4 bg-rose-50/50 border-b border-zinc-100 flex items-center gap-2">
-              <PackageMinus size={16} className="text-rose-600" />
-              <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Bahan Keluar (Out)</span>
-            </div>
-            <div className="divide-y divide-zinc-50 text-xs">
-              {data?.stokKeluar && data.stokKeluar.length > 0 ? data.stokKeluar.map((row: any, i: number) => (
-                <div key={i} className="p-4 flex justify-between items-center hover:bg-zinc-50 transition-colors">
-                  <div>
-                    <p className="font-bold text-zinc-800">{row.nama}</p>
-                    <p className="text-[9px] text-zinc-400 font-semibold mt-1">Tujuan: {row.tujuan} • {row.tgl}</p>
-                  </div>
-                  <span className="text-[10px] font-black px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg">-{row.qty}</span>
-                </div>
-              )) : (
-                <p className="p-5 text-center text-[10px] text-zinc-400 italic">Tidak ada mutasi keluar.</p>
-              )}
             </div>
           </div>
         </div>
