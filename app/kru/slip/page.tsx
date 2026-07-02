@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, FileDown, ShieldCheck, DownloadCloud } from 'lucide-react';
+import { ChevronLeft, FileDown, ShieldCheck, DownloadCloud, MessageSquare } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -39,12 +39,10 @@ export default function SlipGajiKru() {
 
   const formatIDR = (val: number) => `Rp ${new Intl.NumberFormat('id-ID').format(val || 0)}`;
 
-  // Fungsi mengubah tampilan HTML menjadi File PDF
   const handleDownloadPDF = async () => {
     const element = slipRef.current;
     if (!element) return;
 
-    // Sembunyikan tombol saat dirender agar tidak ikut ke-print
     const btn = document.getElementById('btn-download');
     if (btn) btn.style.display = 'none';
 
@@ -62,7 +60,7 @@ export default function SlipGajiKru() {
     } catch (error) {
       alert("Gagal men-download PDF.");
     } finally {
-      if (btn) btn.style.display = 'flex'; // Munculkan lagi
+      if (btn) btn.style.display = 'flex';
     }
   };
 
@@ -99,7 +97,7 @@ export default function SlipGajiKru() {
             {/* INFO KARYAWAN */}
             <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 text-xs font-medium space-y-2">
               <div className="flex justify-between"><span className="text-zinc-500">Nama Lengkap</span><span className="font-black text-zinc-900 uppercase">{slipData.nama}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500">Cabang Penempatan</span><span className="font-black text-zinc-900 uppercase">{slipData.cabang}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Outlet</span><span className="font-black text-zinc-900 uppercase">{slipData.cabang}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Periode Gaji</span><span className="font-bold text-indigo-600">{slipData.periode}</span></div>
             </div>
 
@@ -109,7 +107,8 @@ export default function SlipGajiKru() {
               <div className="space-y-2 text-xs font-medium">
                 <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokok)}</span></div>
                 <div className="flex justify-between"><span>Bonus Target Omset</span><span>{formatIDR(slipData.bonusOmset)}</span></div>
-                <div className="flex justify-between"><span>Tunjangan Objektif Owner</span><span>{formatIDR(slipData.tunjanganObjektif)}</span></div>
+                <div className="flex justify-between"><span>Tunjangan Kinerja / Insentif</span><span>{formatIDR(slipData.tunjanganObjektif)}</span></div>
+                {/* BARIS OVERTIME BARU */}
                 <div className="flex justify-between"><span>Upah Lembur (Overtime)</span><span className="text-amber-600 font-bold">+{formatIDR(slipData.uangOvertime)}</span></div>
               </div>
               <div className="flex justify-between text-xs font-black text-emerald-700 mt-2 pt-2 border-t border-dashed border-zinc-300">
@@ -131,8 +130,21 @@ export default function SlipGajiKru() {
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest relative z-10">Take Home Pay (Bersih)</p>
               <p className="text-2xl font-black text-emerald-400 relative z-10">{formatIDR(slipData.takeHomePay)}</p>
             </div>
+
+            {/* KOTAK EVALUASI / CATATAN OWNER BARU */}
+            {slipData.catatanOwner && (
+              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-1 relative overflow-hidden">
+                <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[10px] uppercase tracking-wider">
+                  <MessageSquare size={12} />
+                  <span>Catatan & Evaluasi Owner</span>
+                </div>
+                <p className="text-xs text-zinc-600 leading-relaxed font-medium italic">
+                  "{slipData.catatanOwner}"
+                </p>
+              </div>
+            )}
             
-            <p className="text-[9px] text-center text-zinc-400 font-medium italic pt-4">
+            <p className="text-[9px] text-center text-zinc-400 font-medium italic pt-2">
               Slip gaji ini dihasilkan secara otomatis oleh sistem HRIS Kopi Bara dan sah tanpa tanda tangan.
             </p>
           </div>
@@ -141,7 +153,7 @@ export default function SlipGajiKru() {
         )}
       </div>
 
-      {/* TOMBOL DOWNLOAD (Nempel di bawah kersitas) */}
+      {/* TOMBOL DOWNLOAD */}
       <div className="w-full max-w-md mt-2">
         <button 
           id="btn-download"
