@@ -222,7 +222,7 @@ export default function HomeDashboard() {
                     <span className="text-xs font-bold text-zinc-700">{row[2]}</span>
                     <span className="text-[9px] text-zinc-400">Tujuan: {row[8] || row[4]} ({row[0]})</span>
                   </div>
-                  <span className="text-[10px] font-black bg-zinc-100 px-2 py-0.5 rounded-md text-rose-500">-...{row[3]}</span>
+                  <span className="text-[10px] font-black bg-zinc-100 px-2 py-0.5 rounded-md text-rose-500">-{row[3]}</span>
                 </div>
               )) : (
                 <p className="p-3 text-center text-[10px] text-zinc-400 italic">Belum ada data keluar.</p>
