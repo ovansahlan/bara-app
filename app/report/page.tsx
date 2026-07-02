@@ -20,7 +20,7 @@ export default function LaporanWhatsApp() {
 
       if (data.success) {
         const tglIndo = tanggal.split('-').reverse().join('/');
-        let teks = `*REKAP OPERASIONAL KEDAI KOPI BARA*\n📅 Tanggal: ${tglIndo}\n⏰ Shift Laporan: ${shift.toUpperCase()}\n\n`;
+        let teks = `*REKAP OPERASIONAL KEDAI KOPI BARA*\n\n📅 Tanggal: ${tglIndo}\n⏰ Shift Laporan: ${shift.toUpperCase()}\n\n`;
 
         // BAGIAN 1: OMSET
         if (shift === 'Pagi') {

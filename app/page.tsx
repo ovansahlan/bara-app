@@ -124,6 +124,7 @@ export default function HomeDashboard() {
             Akumulasi Kas Net Bulan {getNamaBulan(tanggalPilih)}
           </p>
         </div>
+        
 
         {/* METRICS GRID HARIAN */}
         <div className="grid grid-cols-2 gap-3">
@@ -136,30 +137,6 @@ export default function HomeDashboard() {
             <p className="text-base font-black text-zinc-800">Rp {data ? formatIDR(data.totalKeluar) : '0'}</p>
           </div>
         </div>
-
-        {/* METRICS GRID HARIAN */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Omset Hari Ini</span>
-            <p className="text-base font-black text-zinc-800">Rp {data ? formatIDR(data.omset.total) : '0'}</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Total Pengeluaran Hari Ini</span>
-            <p className="text-base font-black text-zinc-800">Rp {data ? formatIDR(data.totalKeluar) : '0'}</p>
-          </div>
-        </div>
-
-        {/* TOMBOL BARU: GENERATE LAPORAN WHATSAPP */}
-        <Link href="/report" className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center hover:bg-emerald-100/60 transition-all shadow-2xs group relative overflow-hidden">
-          <ArrowUpRight size={16} className="absolute top-3 right-3 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500 text-white rounded-xl shadow-xs"><MessageCircle size={16} /></div>
-            <div>
-              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Serah Terima & Closing</p>
-              <p className="text-sm font-black text-emerald-950">Buat Laporan WhatsApp</p>
-            </div>
-          </div>
-        </Link>
 
         {/* DOUBLE BUTTON: ASET GUDANG & KASBON (CLEAN UI) */}
         <div className="grid grid-cols-2 gap-3">
@@ -206,6 +183,18 @@ export default function HomeDashboard() {
             </div>
           </div>
         </div>
+
+        {/* TOMBOL BARU: GENERATE LAPORAN WHATSAPP */}
+        <Link href="/report" className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center hover:bg-emerald-100/60 transition-all shadow-2xs group relative overflow-hidden">
+          <ArrowUpRight size={16} className="absolute top-3 right-3 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500 text-white rounded-xl shadow-xs"><MessageCircle size={16} /></div>
+            <div>
+              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Serah Terima & Closing</p>
+              <p className="text-sm font-black text-emerald-950">Buat Laporan WhatsApp</p>
+            </div>
+          </div>
+        </Link>
 
         {/* LOGISTIK GUDANG TERBARU */}
         <div className="space-y-2.5 pt-1">
@@ -279,7 +268,7 @@ export default function HomeDashboard() {
           </Link>
           <Link href="/pengeluaran" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white p-2 transition-colors">
             <Wallet size={20} />
-            <span className="text-[8px] font-black uppercase tracking-tighter">Biaya</span>
+            <span className="text-[8px] font-black uppercase tracking-tighter">Belanja</span>
           </Link>
         </div>
       </div>
