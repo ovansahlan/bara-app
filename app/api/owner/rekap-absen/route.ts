@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           if (timeOnly <= '09:00:59') tepatWaktu++; else telat++;
         } else if (shift === 'Shift Malam') {
           if (timeOnly <= '12:30:59') prepDapur++;
-          else if (timeOnly > '12:30:59' && timeOnly <= '14:00:59') tepatWaktu++;
+          else if (timeOnly <= '12:30:59' && timeOnly <= '14:00:59') tepatWaktu++;
           else telat++;
         } else if (shift === 'Full Day') fullDay++;
         else if (shift === 'Izin Resmi') izin++;
