@@ -119,31 +119,7 @@ export default function DashboardOwner() {
         </Link>
 
         
-        {/* ================= VIEW LAPORAN KEDAI UTAMA ================= */}
-        {viewCabang === 'kedai' && data && (
-          <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-200">
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm col-span-2">
-              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">Gross Omset Kedai</span>
-              <div className="flex items-baseline gap-1 text-zinc-800 font-black text-lg">
-                <TrendingUp size={16} className="text-emerald-500 mr-1" />
-                Rp {formatIDR(data.kedai.omset)}
-              </div>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Biaya Operasional Kru</span>
-              <p className="text-sm font-black text-zinc-700">Rp {formatIDR(data.kedai.pengeluaranKru)}</p>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
-              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Belanja Dana Owner</span>
-              <p className="text-sm font-black text-zinc-700">Rp {formatIDR(data.kedai.belanjaOwner)}</p>
-            </div>
-            {/* TOTAL PENGELUARAN CABANG KEDAI */}
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm col-span-2 bg-rose-50/30">
-              <span className="text-[9px] font-bold text-rose-500 uppercase tracking-wider block mb-1">Total Beban Biaya Kedai (Kru + Owner)</span>
-              <p className="text-base font-black text-rose-700">Rp {formatIDR(data.kedai.pengeluaranKru + data.kedai.belanjaOwner)}</p>
-            </div>
-          </div>
-        )}
+       
 {/* ================= VIEW LAPORAN GABUNGAN (TOTAL) ================= */}
 {viewCabang === 'gabungan' && data && (
           <div className="space-y-3 animate-in fade-in duration-200">

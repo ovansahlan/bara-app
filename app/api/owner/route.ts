@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 
 export const dynamic = 'force-dynamic';
 
+// 1. FUNGSI GET: Memantau & Memilah Finansial Multi-Cabang (Aman dari desimal panjang)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -29,7 +30,6 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // TARIK SEMUA TAB TERMASUK CABANG GEROBAK
     const [resPenjualan, resPengeluaran, resPenjualanGrb, resPengeluaranGrb, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
@@ -44,15 +44,15 @@ export async function GET(request: Request) {
       if (!val) return 0;
       let str = val.toString().trim();
       if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
-      return parseInt(str.replace(/\D/g, ''), 10) || 0;
+      const hasil = parseInt(str.replace(/\D/g, ''), 10);
+      return isNaN(hasil) ? 0 : hasil;
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    // Inisialisasi Penampung Finansial Terpisah
     const kedai = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
     const gerobak = { omset: 0, pengeluaranKru: 0, belanjaOwner: 0, labaBersih: 0 };
 
-    // 1. KEDAI UTAMA - OMSET BULANAN
+    // A. Kedai Utama Omset
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. KEDAI UTAMA - PENGELUARAN KRU
+    // B. Kedai Utama Pengeluaran Kru
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. GEROBAK - OMSET BULANAN
+    // C. Cabang Gerobak Omset
     (resPenjualanGrb.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. GEROBAK - PENGELUARAN KRU
+    // D. Cabang Gerobak Pengeluaran Kru
     (resPengeluaranGrb.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // 5. BREAKDOWN TAB BELANJA OWNER BERDASARKAN KOLOM E (PERUNTUKAN)
+    // E. Belanja Dana Owner (Breakdown Berdasarkan Kolom E)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
       if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
@@ -94,16 +94,15 @@ export async function GET(request: Request) {
         if (peruntukan === 'gerobak') {
           gerobak.belanjaOwner += nominal;
         } else {
-          kedai.belanjaOwner += nominal; // Default lari ke kedai utama jika kosong
+          kedai.belanjaOwner += nominal;
         }
       }
     });
 
-    // Hitung Laba Bersih Masing-masing
     kedai.labaBersih = Math.round(kedai.omset - kedai.pengeluaranKru - kedai.belanjaOwner);
     gerobak.labaBersih = Math.round(gerobak.omset - gerobak.pengeluaranKru - gerobak.belanjaOwner);
 
-    // 6. PERHITUNGAN REAL-TIME GUDANG LOGISTIK (TETAP TERPUSAT)
+    // F. Gudang Logistik Terpusat
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     const rowsIn = resStokIn.data.values || [];
     rowsIn.slice(1).forEach(row => {
@@ -152,6 +151,7 @@ export async function GET(request: Request) {
   }
 }
 
+// 2. FUNGSI POST FIX: Menerima Banyak Item Belanjaan Cabang & Menyimpannya ke Kolom A-E
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -181,14 +181,13 @@ export async function POST(request: Request) {
     const [year, month, day] = tanggal.split('-');
     const formatTanggalID = `${day}/${month}/${year}`;
 
-    // FORMAT BARIS BARU SEKARANG ADA 5 KOLOM:
-    // Tanggal (A) | Kategori (B) | Keterangan (C) | Nominal (D) | Peruntukan (E)
+    // Memetakan struktur array multidimensi dengan kolom tujuan E (Peruntukan Cabang)
     const kumpulanBarisBaru = daftarBelanja.map((item: any) => [
       formatTanggalID, 
       item.kategori, 
       item.keterangan, 
       item.nominal,
-      item.peruntukan || 'Kedai' // Nilai: 'Kedai' atau 'Gerobak'
+      item.peruntukan || 'Kedai' // Menyimpan teks 'Kedai' atau 'Gerobak' ke Kolom E
     ]);
 
     await sheets.spreadsheets.values.append({
@@ -196,12 +195,13 @@ export async function POST(request: Request) {
       range: 'Belanja_Owner!A:E',
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [kumpulanBarisBaru] },
+      requestBody: { values: kumpulanBarisBaru },
     });
 
-    return NextResponse.json({ success: true, message: 'Catatan belanja terkelompok berhasil disimpan!' });
+    return NextResponse.json({ success: true, message: 'Seluruh draf belanja owner berhasil dikunci!' });
 
   } catch (error: any) {
-    return NextResponse.json({ error: 'Gagal mengunci data.' }, { status: 500 });
+    console.error('API Owner POST Error:', error);
+    return NextResponse.json({ error: 'Gagal mengunci data ke spreadsheet.', details: error.message }, { status: 500 });
   }
 }
