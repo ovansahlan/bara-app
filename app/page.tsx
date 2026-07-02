@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, TrendingUp, Wallet, Box, 
   RefreshCw, Calendar, ArrowUpRight, ArrowDownRight, 
-  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers,MessageCircle
+  CreditCard, Smartphone, Banknote, History, Camera, Landmark, Lock, KeyRound, X, Layers,MessageCircle,Store
 } from 'lucide-react';
 
 export default function HomeDashboard() {
@@ -108,7 +108,22 @@ export default function HomeDashboard() {
           </div>
         </div>
       )}
-
+{/* BANNER NAVIGASI KE PORTAL GEROBAK */}
+<div className="max-w-md mx-auto px-4 mt-4">
+        <Link href="/gerobak" className="bg-gradient-to-r from-amber-500 to-orange-500 p-3.5 rounded-2xl flex items-center justify-between text-white shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Store size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-amber-100 uppercase tracking-widest mb-0.5">Akses Kru Cabang</p>
+              <p className="text-sm font-black tracking-wide">Buka Portal Gerobak</p>
+            </div>
+          </div>
+          <ArrowUpRight size={20} className="text-amber-100 opacity-80" />
+        </Link>
+      </div>
+      {/* ---------------------------------------- */}
       <div className="max-w-md mx-auto px-4 mt-6 space-y-4">
         
         {/* ESTIMASI KAS LACI KASIR */}
