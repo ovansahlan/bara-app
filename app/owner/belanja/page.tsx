@@ -24,7 +24,7 @@ export default function InputBelanjaOwner() {
     peruntukan: 'Kedai' // Default untuk Kedai Utama
   });
 
-  const daftarKategori = ["Operational", "Bar", "Dapur",];
+  const daftarKategori = ["Operational", "Bar", "Dapur", "Gerobak", "Pelangi"];
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -47,13 +47,14 @@ export default function InputBelanjaOwner() {
     };
 
     setDaftarBelanja([...daftarBelanja, itemBaru]);
-    setInputItem({ ...inputItem, keterangan: '', nominal: '' }); // Reset input teks
+    setInputItem({ ...inputItem, keterangan: '', nominal: '' }); // Reset text input
   };
 
   const hapusItemBelanja = (index: number) => {
     setDaftarBelanja(daftarBelanja.filter((_, i) => i !== index));
   };
 
+  // KODE PERBAIKAN: Fungsi Pengiriman Utama Yang Sudah Di-fix Variabelnya
   const handleSimpanSemua = async () => {
     if (daftarBelanja.length === 0) return alert("Daftar belanja masih kosong!");
     setIsSubmitting(true);
@@ -67,13 +68,14 @@ export default function InputBelanjaOwner() {
 
       if (response.ok) {
         alert("✅ Seluruh alokasi dana belanja cabang berhasil dikunci!");
-        setDaftarBelanja([]);
+        setDaftarBelanja([]); // Menggunakan nama fungsi yang benar
         router.push('/owner'); 
       } else {
-        alert("❌ Gagal menyimpan data belanja.");
+        alert("❌ Gagal menyimpan data belanja. Periksa koneksi atau kredensial server.");
       }
     } catch (err) {
       console.error(err);
+      alert("❌ Terjadi kesalahan jaringan.");
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +114,6 @@ export default function InputBelanjaOwner() {
               </select>
             </div>
             <div>
-              {/* DROPDOWN BARU: ALOKASI PERUNTUKAN USAHA */}
               <label className="block text-[10px] font-bold text-indigo-500 uppercase flex items-center gap-1 mb-1">
                 <Store size={10} /> Alokasi Cabang
               </label>
