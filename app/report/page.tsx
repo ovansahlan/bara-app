@@ -22,7 +22,7 @@ export default function LaporanWhatsApp() {
         const tglIndo = tanggal.split('-').reverse().join('/');
         let teks = `*REKAP OPERASIONAL KEDAI KOPI BARA*\n📅 Tanggal: ${tglIndo}\n⏰ Shift Laporan: ${shift.toUpperCase()}\n\n`;
 
-        // BAGIAN 1: OMSET (Ganti istilah "Kotor" menjadi "Gross Omset")
+        // BAGIAN 1: OMSET
         if (shift === 'Pagi') {
           teks += `*💰 RINCIAN OMSET SHIFT PAGI*\n`;
           teks += `- Tunai Masuk: ${formatIDR(data.omsetPagi.tunai)}\n`;
@@ -80,10 +80,13 @@ export default function LaporanWhatsApp() {
         teks += `👉 *Total Kas Laci Aktif: ${formatIDR(data.saldoLaciKasir)}*\n`;
         teks += `_(Harus cocok dengan uang fisik saat serah terima / hitung laci)_\n\n`;
 
-        // BAGIAN 5: STOK GUDANG ALERT (Hanya menampilkan jumlah item)
+        // BAGIAN 5: FIX ALERT STOK GUDANG (Hanya Nama Item & Sisa Saja)
         teks += `*🚨 ALERT STOK GUDANG*\n`;
         if (data.stockAlerts.length > 0) {
-          teks += `- Sisa *${data.stockAlerts.length} item*\n`;
+          data.stockAlerts.forEach((s: any) => {
+            // Hasil cetak contoh: - Biji Kopi Flores (Sisa: 3)
+            teks += `- ${s.nama} (Sisa: ${s.sisa})\n`;
+          });
         } else {
           teks += `- Seluruh stok terpantau aman.\n`;
         }
