@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const namaKru = (searchParams.get('nama') || '').toLowerCase();
-    const cabang = (searchParams.get('cabang') || '').toLowerCase();
+    const namaKru = (searchParams.get('nama') || '').toLowerCase().trim();
+    const cabang = (searchParams.get('cabang') || '').toLowerCase().trim();
 
     if (!namaKru || !cabang) return NextResponse.json({ error: 'Parameter tidak lengkap.' }, { status: 400 });
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const year = today.getFullYear();
     const prefixTanggalID = `/${month}/${year}`; 
-    const prefixTanggalWeb = `${year}-${month}`; 
+    const prefixTanggalWeb = `${year}-${month}`; // Cocok untuk 'Evaluasi_Bulanan' (YYYY-MM)
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -29,10 +29,11 @@ export async function GET(request: Request) {
 
     const rangeOmset = cabang === 'gerobak' ? 'Penjualan_Gerobak!A:H' : 'Penjualan!A:H';
 
-    // Tarik data Master Kru & Omset Cabang
-    const [resMaster, resOmset] = await Promise.all([
+    // Tarik data Master Kru, Omset, dan Tab Evaluasi Owner Baru
+    const [resMaster, resOmset, resEvaluasi] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master_Kru!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: rangeOmset }).catch(() => ({ data: { values: [] } }))
+      sheets.spreadsheets.values.get({ spreadsheetId, range: rangeOmset }).catch(() => ({ data: { values: [] } })),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Evaluasi_Bulanan!A:D' }).catch(() => ({ data: { values: [] } }))
     ]);
 
     const parseRupiah = (val: any) => {
@@ -42,18 +43,37 @@ export async function GET(request: Request) {
       return parseInt(str.replace(/\D/g, ''), 10) || 0;
     };
 
-    // 1. Cari Gaji Pokok & Cicilan Kru
+    // 1. Cari Gaji Pokok & Cicilan dari Master_Kru
     const rowsMaster = resMaster.data.values || [];
     let gajiPokok = 0;
     let cicilan = 0;
-
-    const kruData = rowsMaster.slice(1).find(r => (r[1] || '').toString().toLowerCase() === namaKru);
+    const kruData = rowsMaster.slice(1).find(r => (r[1] || '').toString().toLowerCase().trim() === namaKru);
     if (kruData) {
-      gajiPokok = parseRupiah(kruData[5] || 0); // Kolom F
-      cicilan = parseRupiah(kruData[6] || 0);   // Kolom G
+      gajiPokok = parseRupiah(kruData[5] || 0);
+      cicilan = parseRupiah(kruData[6] || 0);
     }
 
-    // 2. Hitung Total Omset Cabang Bulan Ini
+   // 2. Ambil Tunjangan Objektif, Overtime & Catatan dari Owner
+   const rowsEvaluasi = resEvaluasi.data.values || [];
+   let tunjanganObjektif = 0;
+   let uangOvertime = 0; // Inisialisasi variabel baru
+   let catatanOwner = "Terima kasih atas kerja kerasmu bulan ini. Pertahankan terus kinerjamu!";
+
+   const evaluasiDitemukan = rowsEvaluasi.slice(1).find(row => {
+     const rowBulan = row[0] ? row[0].toString().trim() : '';
+     const rowNama = row[1] ? row[1].toString().toLowerCase().trim() : '';
+     return rowBulan === prefixTanggalWeb && rowNama === namaKru;
+   });
+
+   if (evaluasiDitemukan) {
+     tunjanganObjektif = parseRupiah(evaluasiDitemukan[2] || 0); // Kolom C
+     uangOvertime = parseRupiah(evaluasiDitemukan[3] || 0);      // Kolom D (Overtime)
+     if (evaluasiDitemukan[4] && evaluasiDitemukan[4].toString().trim() !== '') {
+       catatanOwner = evaluasiDitemukan[4].toString().trim();   // Kolom E (Geser karena ada kolom baru)
+     }
+   }
+
+    // 3. Hitung Total Omset Cabang Bulan Ini untuk Syarat Bonus
     let totalOmsetCabang = 0;
     (resOmset.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
@@ -62,19 +82,16 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Kalkulasi Bonus Omset (Kedai Target 45Jt = 5% dibagi rata, Gerobak Target 20Jt = 200rb)
+    // 4. Hitung Bonus Target Omset
     let bonusOmset = 0;
     if (cabang === 'gerobak' && totalOmsetCabang >= 20000000) {
       bonusOmset = 200000;
     } else if (cabang === 'kedai' && totalOmsetCabang >= 45000000) {
-      // Misal asumsi kru kedai aktif ada 4 orang (nanti bisa dibuat dinamis, sementara kita hardcode bagi 4 atau persentase khusus)
       const totalBonusKedai = totalOmsetCabang * 0.05;
-      bonusOmset = totalBonusKedai / 4; // Dibagi 4 kru kedai
+      bonusOmset = totalBonusKedai / 4; // Asumsi bagi rata 4 orang kru aktif kedai
     }
 
-    // 4. Kalkulasi Take Home Pay
-    // (Tunjangan owner belum masuk sini dulu karena butuh tab Evaluasi, kita set 0 sementara)
-    const tunjanganObjektif = 0; 
+    // 5. Total Akhir Kalkulasi Take Home Pay
     const totalPendapatan = gajiPokok + bonusOmset + tunjanganObjektif;
     const takeHomePay = totalPendapatan - cicilan;
 
@@ -89,7 +106,8 @@ export async function GET(request: Request) {
         tunjanganObjektif,
         totalPendapatan,
         cicilan,
-        takeHomePay
+        takeHomePay,
+        catatanOwner // Loloskan variabel pesan tertulis owner ke frontend
       }
     });
 

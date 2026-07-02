@@ -156,14 +156,14 @@ export default function DashboardKru() {
 
         {/* MENU AKSI KRU */}
         <div className="grid grid-cols-2 gap-3 pt-2">
-          {/* Fitur Absensi (Segera Hadir / Next Step) */}
-          <button className="bg-indigo-50 border border-indigo-100 p-4 rounded-3xl flex flex-col justify-between hover:bg-indigo-100/60 transition-all shadow-sm group">
+          {/* Fitur Absensi */}
+          <Link href="/absen" className="bg-indigo-50 border border-indigo-100 p-4 rounded-3xl flex flex-col justify-between hover:bg-indigo-100/60 transition-all shadow-sm group">
             <div className="p-3 bg-indigo-500 text-white rounded-2xl w-fit mb-4 shadow-md"><Fingerprint size={20} /></div>
             <div className="text-left">
               <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mb-0.5">Catat Kehadiran</p>
               <p className="text-sm font-black text-indigo-950">Absen Harian</p>
             </div>
-          </button>
+          </Link>
 
          {/* Fitur Slip Gaji */}
          <Link href="/kru/slip" className="bg-white border border-zinc-200/80 p-4 rounded-3xl flex flex-col justify-between hover:bg-zinc-50 transition-all shadow-sm group">
