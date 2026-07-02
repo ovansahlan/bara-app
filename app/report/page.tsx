@@ -22,7 +22,7 @@ export default function LaporanWhatsApp() {
         const tglIndo = tanggal.split('-').reverse().join('/');
         let teks = `*REKAP OPERASIONAL KEDAI KOPI BARA*\n📅 Tanggal: ${tglIndo}\n⏰ Shift Laporan: ${shift.toUpperCase()}\n\n`;
 
-        // BAGIAN 1: OMSET
+        // BAGIAN 1: OMSET (Ganti istilah "Kotor" menjadi "Gross Omset")
         if (shift === 'Pagi') {
           teks += `*💰 RINCIAN OMSET SHIFT PAGI*\n`;
           teks += `- Tunai Masuk: ${formatIDR(data.omsetPagi.tunai)}\n`;
@@ -38,19 +38,19 @@ export default function LaporanWhatsApp() {
           teks += `- Grab: ${formatIDR(data.omsetMalam.grab)}\n`;
           teks += `*Total Shift Malam: ${formatIDR(data.omsetMalam.total)}*\n\n`;
 
-          teks += `*📊 KUMULASI KOTOR (PAGI + MALAM)*\n`;
+          teks += `*📊 KUMULASI GROSS OMSET (PAGI + MALAM)*\n`;
           teks += `- Tunai Masuk: ${formatIDR(data.omsetHarian.tunai)}\n`;
           teks += `- QRIS: ${formatIDR(data.omsetHarian.qris)}\n`;
           teks += `- EDC/TF: ${formatIDR(data.omsetHarian.edc)}\n`;
           teks += `- Grab: ${formatIDR(data.omsetHarian.grab)}\n`;
-          teks += `*TOTAL KOTOR HARIAN: ${formatIDR(data.omsetHarian.total)}*\n\n`;
+          teks += `*TOTAL GROSS OMSET HARIAN: ${formatIDR(data.omsetHarian.total)}*\n\n`;
         } else if (shift === 'Gabungan') {
-          teks += `*📊 TOTAL KOTOR FULL SEHARI*\n`;
+          teks += `*📊 TOTAL GROSS OMSET FULL SEHARI*\n`;
           teks += `- Tunai Masuk: ${formatIDR(data.omsetHarian.tunai)}\n`;
           teks += `- QRIS: ${formatIDR(data.omsetHarian.qris)}\n`;
           teks += `- EDC/TF: ${formatIDR(data.omsetHarian.edc)}\n`;
           teks += `- Grab: ${formatIDR(data.omsetHarian.grab)}\n`;
-          teks += `*TOTAL KOTOR HARIAN: ${formatIDR(data.omsetHarian.total)}*\n\n`;
+          teks += `*TOTAL GROSS OMSET HARIAN: ${formatIDR(data.omsetHarian.total)}*\n\n`;
         }
 
         // BAGIAN 2: PENGELUARAN LACI
@@ -64,7 +64,7 @@ export default function LaporanWhatsApp() {
           teks += `- Tidak ada pengeluaran.\n\n`;
         }
 
-        // BAGIAN 3: BARU - RINCIAN KASBON KRU HARI INI
+        // BAGIAN 3: RINCIAN KASBON KRU HARI INI
         teks += `*📌 PINJAMAN KASBON HARI INI*\n`;
         if (data.kasbonHariIni.length > 0) {
           data.kasbonHariIni.forEach((k: any, i: number) => {
@@ -75,17 +75,15 @@ export default function LaporanWhatsApp() {
           teks += `- Tidak ada penarikan kasbon hari ini.\n\n`;
         }
 
-        // BAGIAN 4: BARU - ESTIMASI SALDO FISIK LACI KASIR NET
+        // BAGIAN 4: ESTIMASI SALDO FISIK LACI KASIR NET
         teks += `*💵 ESTIMASI SALDO UANG FISIK LACI*\n`;
         teks += `👉 *Total Kas Laci Aktif: ${formatIDR(data.saldoLaciKasir)}*\n`;
         teks += `_(Harus cocok dengan uang fisik saat serah terima / hitung laci)_\n\n`;
 
-        // BAGIAN 5: STOK GUDANG ALERT
+        // BAGIAN 5: STOK GUDANG ALERT (Hanya menampilkan jumlah item)
         teks += `*🚨 ALERT STOK GUDANG*\n`;
         if (data.stockAlerts.length > 0) {
-          data.stockAlerts.forEach((s: any) => {
-            teks += `- ${s.nama} (Sisa Kritis!)\n`;
-          });
+          teks += `- Sisa *${data.stockAlerts.length} item*\n`;
         } else {
           teks += `- Seluruh stok terpantau aman.\n`;
         }
