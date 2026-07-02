@@ -56,20 +56,22 @@ export default function SlipGajiKru() {
       });
       const imgData = canvas.toDataURL('image/png');
       
-      // SOLUSI PINTAR: Ukuran tinggi kertas PDF dinamis mengikuti tinggi asli slip agar tidak kepotong
-      const imgProps = jsPDF.prototype.getImageProperties(imgData);
+      // FIX: Hitung ukuran kertas langsung dari dimensi kanvas (Bebas Crash)
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
       const pdfWidth = 210; // Lebar standar A4 (mm)
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width; // Tinggi proporsional otomatis
+      const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth; 
 
       const pdf = new jsPDF({ 
         orientation: 'portrait', 
         unit: 'mm', 
-        format: [pdfWidth, pdfHeight] // Kertas otomatis memanjang sesuai isi nota
+        format: [pdfWidth, pdfHeight] 
       });
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Slip_Gaji_${profilKru.nama}_${slipData.periode}.pdf`);
     } catch (error) {
+      console.error(error);
       alert("Gagal men-download PDF.");
     } finally {
       if (btn) btn.style.display = 'flex';

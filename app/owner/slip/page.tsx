@@ -59,23 +59,24 @@ export default function HRDSlipCenter() {
 
   const handleDownloadPDF = async () => {
     const element = slipRef.current;
-    if (!element || !slipData) return;
+    if (!element) return;
 
-    const btn = document.getElementById('btn-download-hrd');
+    const btn = document.getElementById('btn-download');
     if (btn) btn.style.display = 'none';
 
     try {
       const canvas = await html2canvas(element, { 
-        scale: 2, 
-        useCORS: true, 
-        allowTaint: true 
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
       });
       const imgData = canvas.toDataURL('image/png');
       
-      // FIX TINGGI DINAMIS: Kertas PDF otomatis memanjang mengikuti tinggi bodi konten agar tidak terpotong
-      const imgProps = jsPDF.prototype.getImageProperties(imgData);
-      const pdfWidth = 210; // Lebar A4 standar
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // FIX: Hitung ukuran kertas langsung dari dimensi kanvas (Bebas Crash)
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const pdfWidth = 210; // Lebar standar A4 (mm)
+      const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth; 
 
       const pdf = new jsPDF({ 
         orientation: 'portrait', 
@@ -84,14 +85,15 @@ export default function HRDSlipCenter() {
       });
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Slip_HRD_${slipData.nama}_${slipData.periode}.pdf`);
+      pdf.save(`Slip_Gaji_${profilKru.nama}_${slipData.periode}.pdf`);
     } catch (error) {
-      alert("Gagal mengunduh PDF.");
+      console.error(error);
+      alert("Gagal men-download PDF.");
     } finally {
       if (btn) btn.style.display = 'flex';
     }
   };
-
+  
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 pb-24 font-sans p-4 flex flex-col items-center pt-8">
       
