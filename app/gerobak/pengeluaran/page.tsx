@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, CheckCircle2, RefreshCw, Wallet, HelpCircle, Plus, Trash2, ListChecks } from 'lucide-react';
@@ -16,6 +16,8 @@ export default function FormPengeluaranGerobak() {
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [namaKru, setNamaKru] = useState<string>('');
   
+  const [daftarKru, setDaftarKru] = useState<any[]>([]);
+  const [loadingKru, setLoadingKru] = useState<boolean>(true);
   const [daftarPengeluaran, setDaftarPengeluaran] = useState<ItemPengeluaran[]>([]);
   
   const templateKeterangan = ["Es Tube", "Plastik", "Kresek", "Sedotan", "Evaporasi", "UHT", "SKM", "Lainnya"];
@@ -23,7 +25,21 @@ export default function FormPengeluaranGerobak() {
   const [keteranganManual, setKeteranganManual] = useState<string>('');
   const [nominalInput, setNominalInput] = useState<string>('');
 
-  const daftarKru = ["Ruslan", "Elan"];
+  // KODE DINAMIS: Ambil data kru Gerobak yang aktif dari API
+  useEffect(() => {
+    const fetchKru = async () => {
+      try {
+        const res = await fetch('/api/kru?cabang=gerobak', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setDaftarKru(data.kru);
+      } catch (e) {
+        console.error("Gagal memuat data kru", e);
+      } finally {
+        setLoadingKru(false);
+      }
+    };
+    fetchKru();
+  }, []);
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -41,7 +57,6 @@ export default function FormPengeluaranGerobak() {
 
     setDaftarPengeluaran([...daftarPengeluaran, { keterangan: finalKeterangan, nominal: nominalMurni }]);
     
-    // Reset form input 
     setKeteranganPilih(templateKeterangan[0]);
     setKeteranganManual('');
     setNominalInput('');
@@ -80,19 +95,17 @@ export default function FormPengeluaranGerobak() {
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24 font-sans">
       <div className="bg-amber-500 border-b border-amber-600 sticky top-0 z-20 shadow-md">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/gerobak" className="p-2 bg-amber-400/50 text-amber-950 rounded-full hover:bg-amber-400 transition-colors">
+          <Link href="/gerobak" className="p-2 bg-amber-400/50 text-amber-950 rounded-full">
             <ChevronLeft size={20} />
           </Link>
           <h1 className="text-sm font-black text-amber-950 uppercase flex items-center gap-1.5 tracking-wider">
             <Wallet size={16} /> Biaya Gerobak
           </h1>
-          <div className="w-9 h-9"></div>
+          <div className="w-10 h-10"></div>
         </div>
       </div>
 
       <div className="max-w-md mx-auto px-5 mt-6 space-y-5">
-        
-        {/* METADATA FORM */}
         <div className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-sm grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5 tracking-widest">Tanggal</label>
@@ -101,13 +114,12 @@ export default function FormPengeluaranGerobak() {
           <div>
             <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5 tracking-widest">Nama Kru</label>
             <select value={namaKru} onChange={(e) => setNamaKru(e.target.value)} className="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer" required>
-              <option value="">-- Kru --</option>
-              {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+              <option value="">{loadingKru ? 'Memuat...' : '-- Pilih --'}</option>
+              {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
             </select>
           </div>
         </div>
 
-        {/* INPUT DRAFT PENGELUARAN */}
         <form onSubmit={handleTambahKeDaftar} className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-500"></div>
           
@@ -138,7 +150,6 @@ export default function FormPengeluaranGerobak() {
           </button>
         </form>
 
-        {/* LIST KERANJANG PENGELUARAN */}
         {daftarPengeluaran.length > 0 && (
           <div className="bg-zinc-900 p-5 rounded-3xl border border-zinc-800 text-white space-y-4 shadow-xl animate-in slide-in-from-bottom-2 fade-in">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-3">

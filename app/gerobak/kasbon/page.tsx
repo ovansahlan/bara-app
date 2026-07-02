@@ -10,6 +10,9 @@ export default function FormKasbonGerobak() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [rekapKasbon, setRekapKasbon] = useState<Record<string, number>>({});
   
+  const [daftarKru, setDaftarKru] = useState<any[]>([]);
+  const [loadingKru, setLoadingKru] = useState<boolean>(true);
+
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     namaKru: '',
@@ -17,7 +20,21 @@ export default function FormKasbonGerobak() {
     keterangan: ''
   });
 
-  const daftarKru = ["Ruslan", "Elan"];
+  // KODE DINAMIS: Ambil data kru Gerobak yang aktif dari API
+  useEffect(() => {
+    const fetchKru = async () => {
+      try {
+        const res = await fetch('/api/kru?cabang=gerobak', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setDaftarKru(data.kru);
+      } catch (e) {
+        console.error("Gagal memuat data kru", e);
+      } finally {
+        setLoadingKru(false);
+      }
+    };
+    fetchKru();
+  }, []);
 
   const fetchRekapKasbon = async (tglStr: string) => {
     try {
@@ -50,7 +67,6 @@ export default function FormKasbonGerobak() {
 
     setIsSubmitting(true);
     try {
-      // Menggunakan API Kasbon Utama karena databasenya tersentralisasi
       const response = await fetch('/api/kasbon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +74,7 @@ export default function FormKasbonGerobak() {
           tanggal: form.tanggal,
           namaKru: form.namaKru,
           nominal: form.nominal,
-          keterangan: `(Gerobak) ${form.keterangan}` // Penanda asal entri
+          keterangan: `(Gerobak) ${form.keterangan}`
         }),
       });
 
@@ -81,7 +97,7 @@ export default function FormKasbonGerobak() {
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24 font-sans">
       <div className="bg-amber-500 border-b border-amber-600 sticky top-0 z-20 shadow-md">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/gerobak" className="p-2.5 bg-amber-400/50 text-amber-950 rounded-full hover:bg-amber-400 transition-colors">
+          <Link href="/gerobak" className="p-2.5 bg-amber-400/50 text-amber-950 rounded-full">
             <ChevronLeft size={20} />
           </Link>
           <h1 className="text-sm font-black text-amber-950 uppercase flex items-center gap-1.5 tracking-wider">
@@ -102,8 +118,8 @@ export default function FormKasbonGerobak() {
             <div>
               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5 tracking-widest">Nama Kru</label>
               <select value={form.namaKru} onChange={(e) => setForm({...form, namaKru: e.target.value})} className="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer" required>
-                <option value="">-- Kru --</option>
-                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+                <option value="">{loadingKru ? 'Memuat...' : '-- Pilih --'}</option>
+                {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
               </select>
             </div>
           </div>
@@ -138,7 +154,7 @@ export default function FormKasbonGerobak() {
             </div>
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 text-white font-black text-xs tracking-wide rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 bg-zinc-900 hover:bg-zinc-800">
+          <button type="submit" disabled={isSubmitting || loadingKru} className="w-full py-4 mt-2 text-white font-black text-xs tracking-wide rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50">
             {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
             {isSubmitting ? 'MENGUNCI...' : 'KUNCI ENTRI KASBON'}
           </button>

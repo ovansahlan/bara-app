@@ -1,22 +1,38 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, CheckCircle2, RefreshCw, TrendingUp, HelpCircle } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, RefreshCw, TrendingUp } from 'lucide-react';
 
 export default function FormPenjualanGerobak() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [daftarKru, setDaftarKru] = useState<any[]>([]);
+  const [loadingKru, setLoadingKru] = useState<boolean>(true);
   
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     namaKru: '',
-    shift: 'Full Day', // Default shift gerobak
+    shift: 'Full Day',
     tunai: '', qris: '', edc: '', grab: ''
   });
 
-  const daftarKru = ["Ruslan", "Elan"];
+  // KODE DINAMIS: Ambil data kru Gerobak yang aktif dari API
+  useEffect(() => {
+    const fetchKru = async () => {
+      try {
+        const res = await fetch('/api/kru?cabang=gerobak', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setDaftarKru(data.kru);
+      } catch (e) {
+        console.error("Gagal memuat data kru", e);
+      } finally {
+        setLoadingKru(false);
+      }
+    };
+    fetchKru();
+  }, []);
 
   const formatRupiah = (angka: string) => {
     const nomor = angka.replace(/\D/g, '');
@@ -51,7 +67,7 @@ export default function FormPenjualanGerobak() {
 
       if (response.ok) {
         alert("✅ Omset Gerobak berhasil dikunci ke spreadsheet!");
-        router.push('/'); // Bisa diarahkan ke dashboard khusus gerobak nanti
+        router.push('/gerobak');
       } else {
         alert("❌ Gagal menyimpan data omset gerobak.");
       }
@@ -63,31 +79,31 @@ export default function FormPenjualanGerobak() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24 font-sans">
       <div className="bg-amber-500 border-b border-amber-600 sticky top-0 z-20 shadow-md">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="p-2 bg-amber-400/50 text-amber-950 rounded-full">
+          <Link href="/gerobak" className="p-2 bg-amber-400/50 text-amber-950 rounded-full">
             <ChevronLeft size={20} />
           </Link>
-          <h1 className="text-sm font-black text-amber-950 uppercase flex items-center gap-1.5">
+          <h1 className="text-sm font-black text-amber-950 uppercase flex items-center gap-1.5 tracking-wider">
             <TrendingUp size={16} /> Input Omset Gerobak
           </h1>
-          <div className="w-9 h-9"></div>
+          <div className="w-10 h-10"></div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 mt-6">
-        <form onSubmit={handleSimpanOmset} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+      <div className="max-w-md mx-auto px-5 mt-6">
+        <form onSubmit={handleSimpanOmset} className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Tanggal</label>
-              <input type="date" value={form.tanggal} onChange={(e) => setForm({...form, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" required />
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5 tracking-widest">Tanggal</label>
+              <input type="date" value={form.tanggal} onChange={(e) => setForm({...form, tanggal: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" required />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Nama Kru</label>
-              <select value={form.namaKru} onChange={(e) => setForm({...form, namaKru: e.target.value})} className="w-full p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer" required>
-                <option value="">-- Pilih Kru --</option>
-                {daftarKru.map(k => <option key={k} value={k}>{k}</option>)}
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5 tracking-widest">Nama Kru</label>
+              <select value={form.namaKru} onChange={(e) => setForm({...form, namaKru: e.target.value})} className="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer" required>
+                <option value="">{loadingKru ? 'Memuat...' : '-- Pilih --'}</option>
+                {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
               </select>
             </div>
           </div>
@@ -97,23 +113,23 @@ export default function FormPenjualanGerobak() {
               const key = metode.toLowerCase() as keyof typeof form;
               return (
                 <div key={metode} className="flex items-center bg-zinc-50 border border-zinc-300 rounded-xl overflow-hidden focus-within:border-amber-400 focus-within:bg-white transition-all">
-                  <div className="px-3 py-3 bg-zinc-100/80 border-r border-zinc-200 min-w-[90px]">
+                  <div className="px-3 py-3.5 bg-zinc-100/80 border-r border-zinc-200 min-w-[95px]">
                     <span className="text-[11px] font-bold text-zinc-600">{metode}</span>
                   </div>
                   <div className="pl-3 pr-1 text-zinc-400 font-bold text-xs">Rp</div>
-                  <input type="text" inputMode="numeric" placeholder="0" value={form[key]} onChange={(e) => setForm({...form, [key]: formatRupiah(e.target.value)})} className="w-full py-2.5 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" />
+                  <input type="text" inputMode="numeric" placeholder="0" value={form[key]} onChange={(e) => setForm({...form, [key]: formatRupiah(e.target.value)})} className="w-full py-3 pr-4 bg-transparent text-sm font-black text-zinc-800 outline-none text-right" />
                 </div>
               )
             })}
           </div>
 
-          <div className="p-4 bg-zinc-900 rounded-xl mt-4 flex justify-between items-center text-white shadow-lg">
+          <div className="p-4 bg-zinc-900 rounded-2xl mt-4 flex justify-between items-center text-white shadow-lg">
             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Omset Kotor</span>
             <span className="text-lg font-black text-emerald-400">Rp {totalOmset.toLocaleString('id-ID')}</span>
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 bg-amber-600 hover:bg-amber-700">
-            {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+          <button type="submit" disabled={isSubmitting || loadingKru} className="w-full py-4 mt-2 text-white font-black text-xs tracking-wide rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 bg-amber-600 hover:bg-amber-700 disabled:opacity-50">
+            {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
             {isSubmitting ? 'MENYIMPAN...' : 'KUNCI DATA OMSET'}
           </button>
         </form>
