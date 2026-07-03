@@ -59,14 +59,20 @@ export default function HomeDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-28 font-sans selection:bg-blue-100 selection:text-blue-900">
       
-      {/* GLOBAL HEADER */}
+      {/* GLOBAL HEADER DENGAN LOGO */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-600 animate-pulse"></div>
-            <div>
-              <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase">KOPI BARA</h1>
-              <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Command & Control Center</p>
+            {/* LOGO BARA COFFEE */}
+            <img 
+              src="/logo.png" 
+              alt="Logo Kopi Bara" 
+              className="h-8 sm:h-10 w-auto object-contain drop-shadow-sm" 
+              crossOrigin="anonymous"
+            />
+            <div className="hidden sm:block border-l-2 border-slate-200 pl-3 ml-1">
+              <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">Kedai Pusat</h1>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Command Center</p>
             </div>
           </div>
           
@@ -117,16 +123,17 @@ export default function HomeDashboard() {
 
       {/* FLUID BENTO WORKSPACE AREA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {/* GRID UTAMA - OTOMATIS MERATAKAN TINGGI KIRI DAN KANAN */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
           
-          {/* LEFT & CENTER ROW: UTAMA */}
-          <div className="md:col-span-2 space-y-4 sm:space-y-6">
+          {/* KOLOM KIRI (UTAMA - SPAN 2) */}
+          <div className="md:col-span-2 flex flex-col gap-4 sm:gap-6 h-full">
             
             {/* ROW 1: CORE FINANSIAL & OWNER PORTAL */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 flex-none">
               
               {/* UANG LACI CARD */}
-              <div className="sm:col-span-2 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between group">
+              <div className="sm:col-span-2 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between group h-full">
                 <div className="absolute top-0 right-0 opacity-[0.03] transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
                   <Landmark size={150} />
                 </div>
@@ -143,10 +150,10 @@ export default function HomeDashboard() {
                 </div>
               </div>
 
-              {/* OWNER ACCESS PORTAL (HORIZONTAL DI HP, VERTIKAL DI TABLET) */}
+              {/* OWNER ACCESS PORTAL (Tinggi diselaraskan otomatis) */}
               <button 
                 onClick={() => setShowAuthModal(true)}
-                className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-start justify-between group active:scale-95 gap-3 sm:gap-0 text-left"
+                className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-sm hover:border-blue-400 hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-start justify-between group active:scale-95 gap-3 sm:gap-0 text-left h-full"
               >
                 <div className="flex items-center gap-3 sm:flex-col sm:items-start sm:gap-0 w-full">
                   <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm sm:mb-4">
@@ -164,7 +171,7 @@ export default function HomeDashboard() {
             </div>
 
             {/* ROW 2: MINI METRICS GRID */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 flex-none">
               <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm flex flex-col justify-center">
                 <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5 sm:mb-1">Omset Hari Ini</span>
                 <p className="text-sm sm:text-lg font-black text-slate-800">Rp {data ? formatIDR(data.omset.total) : '0'}</p>
@@ -175,34 +182,34 @@ export default function HomeDashboard() {
               </div>
             </div>
 
-            {/* ROW 3: AKSI OUTLET (GRID 3 KOLOM DI HP - LEBIH HEMAT RUANG) */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {/* ROW 3: AKSI OUTLET (GRID TEPAT PRESISI) */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-none">
               
-              <Link href="/aset-gudang" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0">
+              <Link href="/aset-gudang" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0 h-full">
                 <div className="p-2 sm:p-2.5 bg-slate-50 text-slate-500 rounded-lg sm:rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shrink-0">
                   <Layers size={16} />
                 </div>
-                <div className="w-full">
+                <div className="w-full sm:mt-2">
                   <p className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest sm:mb-0.5 truncate">Nilai Gudang</p>
                   <p className="text-[9px] sm:text-xs font-black text-slate-800 truncate">Rp {data ? formatIDR(data.nilaiAsetGudang) : '0'}</p>
                 </div>
               </Link>
 
-              <Link href="/report" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0">
+              <Link href="/report" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0 h-full">
                 <div className="p-2 sm:p-2.5 bg-slate-50 text-slate-500 rounded-lg sm:rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shrink-0">
                   <MessageCircle size={16} />
                 </div>
-                <div className="w-full">
+                <div className="w-full sm:mt-2">
                   <p className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest sm:mb-0.5 truncate">Laporan</p>
                   <p className="text-[9px] sm:text-xs font-black text-slate-800 truncate">Kirim WA</p>
                 </div>
               </Link>
 
-              <Link href="/revisi" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0">
+              <Link href="/revisi" className="bg-white border border-slate-200 p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm hover:border-blue-300 transition-all flex flex-col items-center sm:items-start justify-center sm:justify-between group text-center sm:text-left gap-2 sm:gap-0 h-full">
                 <div className="p-2 sm:p-2.5 bg-slate-50 text-slate-500 rounded-lg sm:rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shrink-0">
                   <History size={16} />
                 </div>
-                <div className="w-full">
+                <div className="w-full sm:mt-2">
                   <p className="text-[7px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest sm:mb-0.5 truncate">Koreksi Log</p>
                   <p className="text-[9px] sm:text-xs font-black text-slate-800 truncate">Revisi Typo</p>
                 </div>
@@ -211,7 +218,7 @@ export default function HomeDashboard() {
             </div>
 
             {/* ROW 4: STRUKTUR STRATEGI PEMBAYARAN */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-none">
               <div className="p-3 sm:p-4 border-b border-slate-100 bg-slate-50/50 flex items-center">
                 <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <CreditCard size={14} className="text-slate-400" /> Arus Kas Masuk
@@ -239,11 +246,11 @@ export default function HomeDashboard() {
 
           </div>
 
-          {/* RIGHT ROW: SIDEBAR LOGISTIK & PORTAL */}
-          <div className="space-y-4 sm:space-y-6">
+          {/* KOLOM KANAN (LOGISTIK & PORTAL - SPAN 1 - MENGGUNAKAN FLEX GROW UNTUK RATA BAWAH) */}
+          <div className="flex flex-col gap-4 sm:gap-6 h-full">
             
-            {/* LINK KANAL GEROBAK & HANDBOOK */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-2 sm:gap-3">
+            {/* LINK KANAL GEROBAK & HANDBOOK (Tinggi Fix) */}
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-2 sm:gap-3 shrink-0">
               <Link href="/gerobak" className="bg-white border border-slate-200 p-3 sm:p-4 rounded-xl shadow-sm hover:border-blue-400 flex items-center justify-between group transition-colors">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0"><Store size={14} /></div>
@@ -261,20 +268,20 @@ export default function HomeDashboard() {
               </Link>
             </div>
 
-            {/* REAL-TIME FEED LOG BARANG */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-1.5 px-1 text-slate-400">
+            {/* REAL-TIME FEED LOG BARANG (Tinggi Dinamis / Flex-1) */}
+            <div className="flex flex-col flex-1 gap-3 sm:gap-4 min-h-[300px] md:min-h-0">
+              <div className="flex items-center gap-1.5 px-1 text-slate-400 shrink-0">
                 <Box size={12} />
                 <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Aktivitas Logistik</span>
               </div>
 
-              {/* BARANG MASUK BOX */}
-              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+              {/* BARANG MASUK BOX (Stretch Flex-1) */}
+              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1">
+                <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 shrink-0">
                   <ArrowDownRight size={14} className="text-blue-600 shrink-0" />
                   <span className="text-[8px] sm:text-[9px] font-black text-slate-600 uppercase tracking-wider">Barang Masuk (In)</span>
                 </div>
-                <div className="divide-y divide-slate-50 text-[10px] sm:text-[11px] max-h-[140px] sm:max-h-[160px] overflow-y-auto">
+                <div className="divide-y divide-slate-50 text-[10px] sm:text-[11px] overflow-y-auto flex-1 h-0">
                   {data?.historyStokIn && data.historyStokIn.length > 0 ? data.historyStokIn.map((row: any, i: number) => (
                     <div key={i} className="p-2.5 sm:p-3 flex justify-between items-center hover:bg-slate-50/60 transition-colors">
                       <div className="flex flex-col gap-0.5 min-w-0 pr-2">
@@ -289,13 +296,13 @@ export default function HomeDashboard() {
                 </div>
               </div>
 
-              {/* BARANG KELUAR BOX */}
-              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+              {/* BARANG KELUAR BOX (Stretch Flex-1) */}
+              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1">
+                <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 shrink-0">
                   <ArrowUpRight size={14} className="text-slate-400 shrink-0" />
                   <span className="text-[8px] sm:text-[9px] font-black text-slate-600 uppercase tracking-wider">Barang Keluar (Out)</span>
                 </div>
-                <div className="divide-y divide-slate-50 text-[10px] sm:text-[11px] max-h-[140px] sm:max-h-[160px] overflow-y-auto">
+                <div className="divide-y divide-slate-50 text-[10px] sm:text-[11px] overflow-y-auto flex-1 h-0">
                   {data?.historyStokOut && data.historyStokOut.length > 0 ? data.historyStokOut.map((row: any, i: number) => (
                     <div key={i} className="p-2.5 sm:p-3 flex justify-between items-center hover:bg-slate-50/60 transition-colors">
                       <div className="flex flex-col gap-0.5 min-w-0 pr-2">
