@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   LogOut, Fingerprint, FileDown, UserCircle2, 
-  CheckCircle2, AlertTriangle, Coffee, FileText, Stethoscope, RefreshCw
+  CheckCircle2, AlertTriangle, Coffee, FileText, Stethoscope, RefreshCw,Wallet
 } from 'lucide-react';
 
 export default function DashboardKru() {
@@ -27,20 +27,30 @@ export default function DashboardKru() {
     const dataKru = JSON.parse(sesi);
     setProfilKru(dataKru);
 
-    // 2. Tarik Data Rapor Absen Real-time dari API yang sama dengan Owner
-    const fetchRekap = async () => {
-      try {
-        const res = await fetch(`/api/owner/rekap-absen?nama=${dataKru.nama}`);
-        const data = await res.json();
-        if (data.success) {
-          setRekapAbsen(data.data);
+   // 2. Tarik Data Rapor Absen Real-time dari API
+   const fetchRekap = async () => {
+    try {
+      // TWEAK: Tambahkan parameter waktu (Date.now()) dan perintah 'no-store' 
+      // untuk menghancurkan sistem cache Next.js secara paksa!
+      const res = await fetch(`/api/owner/rekap-absen?nama=${dataKru.nama}&t=${Date.now()}`, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
-      } catch (error) {
-        console.error("Gagal menarik rapor absen:", error);
-      } finally {
-        setIsLoading(false);
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setRekapAbsen(data.data);
       }
-    };
+    } catch (error) {
+      console.error("Gagal menarik rapor absen:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
     fetchRekap();
   }, [router]);
@@ -80,16 +90,21 @@ export default function DashboardKru() {
 
       <div className="max-w-md mx-auto px-5 mt-8 space-y-6">
         
-        {/* QUICK ACTIONS (TOMBOL MENU UTAMA) */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link href="/absen" className="bg-indigo-600 hover:bg-indigo-500 p-5 rounded-3xl shadow-lg shadow-indigo-900/50 flex flex-col items-center justify-center gap-3 transition-transform active:scale-95">
-            <div className="p-3 bg-white/20 rounded-2xl text-white backdrop-blur-sm"><Fingerprint size={28} /></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-50 text-center">Catat<br/>Kehadiran</span>
+       {/* QUICK ACTIONS (TOMBOL MENU UTAMA) */}
+       <div className="grid grid-cols-3 gap-3">
+          <Link href="/absen" className="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-2 transition-transform active:scale-95">
+            <div className="p-2.5 bg-white/20 rounded-xl text-white backdrop-blur-sm"><Fingerprint size={24} /></div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-50 text-center">Absen</span>
           </Link>
           
-          <Link href="/kru/slip" className="bg-zinc-800 border border-zinc-700 hover:border-zinc-600 p-5 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all active:scale-95 group">
-            <div className="p-3 bg-zinc-700 text-zinc-300 group-hover:text-emerald-400 rounded-2xl transition-colors"><FileDown size={28} /></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-zinc-200 text-center">Cetak Slip<br/>Gaji PDF</span>
+          <Link href="/kru/kasbon" className="bg-amber-600 hover:bg-amber-500 p-4 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-2 transition-all active:scale-95">
+            <div className="p-2.5 bg-white/20 rounded-xl text-white backdrop-blur-sm"><Wallet size={24} /></div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-amber-50 text-center">Kasbon</span>
+          </Link>
+          
+          <Link href="/kru/slip" className="bg-zinc-800 border border-zinc-700 hover:border-zinc-600 p-4 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-2 transition-all active:scale-95 group">
+            <div className="p-2.5 bg-zinc-700 text-zinc-300 group-hover:text-emerald-400 rounded-xl transition-colors"><FileDown size={24} /></div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-zinc-200 text-center">Slip Gaji</span>
           </Link>
         </div>
 

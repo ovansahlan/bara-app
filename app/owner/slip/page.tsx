@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, DownloadCloud, ShieldCheck, MessageSquare, Users } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
 export default function HRDSlipCenter() {
@@ -31,7 +31,7 @@ export default function HRDSlipCenter() {
     fetchSemuaKru();
   }, []);
 
-  // 2. Ambil data slip saat Owner memilih salah satu kru
+  // 2. Ambil data Gaji, Kasbon, dan Cicilan Tetap secara bersamaan (Triple Fetch)
   const handlePilihKru = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const nama = e.target.value;
     setKruTerpilih(nama);
@@ -45,11 +45,52 @@ export default function HRDSlipCenter() {
 
     setLoadingSlip(true);
     try {
-      const res = await fetch(`/api/kru/slip?nama=${kruObj.nama}&cabang=${kruObj.cabang}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success) setSlipData(data.data);
+      const [resSlip, resKasbon, resCicilan] = await Promise.all([
+        fetch(`/api/kru/slip?nama=${kruObj.nama}&cabang=${kruObj.cabang}`, { cache: 'no-store' }),
+        fetch(`/api/kru/kasbon?nama=${kruObj.nama}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/cicilan?nama=${kruObj.nama}&t=${Date.now()}`, { cache: 'no-store' })
+      ]);
+
+      const dataSlip = await resSlip.json();
+      const dataKasbon = await resKasbon.json();
+      const dataCicilan = await resCicilan.json();
+
+      if (dataSlip.success) {
+        let finalSlip = { ...dataSlip.data };
+        let listPotonganKustom: any[] = [];
+        let totalSemuaPotongan = 0;
+
+        // A. Ambil Data Kasbon Berjalan (Jika ada tunggakan)
+        if (dataKasbon.success && dataKasbon.data.totalKasbon > 0) {
+          listPotonganKustom.push({
+            label: 'Kasbon Berjalan (Bulan Ini)',
+            nominal: dataKasbon.data.totalKasbon
+          });
+          totalSemuaPotongan += dataKasbon.data.totalKasbon;
+        }
+
+        // B. Ambil Data Cicilan-Cicilan Tetap yang Aktif
+        if (dataCicilan.success && dataCicilan.data.list.length > 0) {
+          dataCicilan.data.list.forEach((item: any) => {
+            listPotonganKustom.push({
+              label: `${item.deskripsi} (${item.tenor})`,
+              nominal: item.nominal
+            });
+            totalSemuaPotongan += item.nominal;
+          });
+        }
+
+        // Masukkan array potongan kustom ke dalam objek slip data
+        finalSlip.arrayPotongan = listPotonganKustom;
+        finalSlip.totalPotonganPasti = totalSemuaPotongan;
+        
+        // RE-KALKULASI TAKE HOME PAY: Pendapatan Kotor dikurangi Total Semua Potongan Asli
+        finalSlip.takeHomePay = finalSlip.totalPendapatan - totalSemuaPotongan;
+
+        setSlipData(finalSlip);
+      }
     } catch (err) {
-      console.error("Gagal memuat slip", err);
+      console.error("Gagal melakukan sinkronisasi data slip terpadu", err);
     } finally {
       setLoadingSlip(false);
     }
@@ -61,22 +102,30 @@ export default function HRDSlipCenter() {
     const element = slipRef.current;
     if (!element) return;
 
-    const btn = document.getElementById('btn-download');
+    // Sembunyikan tombol saat difoto (Ganti ID jadi 'btn-download-hrd' khusus di file Owner!)
+    const btn = document.getElementById('btn-download'); 
     if (btn) btn.style.display = 'none';
 
+    // Kunci ukuran tampilan agar tidak ambruk saat direkam
+    const originalStyle = element.getAttribute('style');
+    element.style.width = '500px';
+    element.style.margin = '0 auto';
+
     try {
-      const canvas = await html2canvas(element, { 
-        scale: 2,
-        useCORS: true,
-        
+      // SENJATA BARU: html-to-image (Membaca Tailwind & SVG dengan sempurna)
+      const imgData = await toPng(element, { 
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2 // Resolusi HD
       });
-      const imgData = canvas.toDataURL('image/png');
       
-      // FIX: Hitung ukuran kertas langsung dari dimensi kanvas (Bebas Crash)
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const pdfWidth = 210; // Lebar standar A4 (mm)
-      const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth; 
+      // Ukuran asli elemen HTML
+      const elWidth = element.offsetWidth;
+      const elHeight = element.offsetHeight;
+      
+      // Rasio ukuran kertas PDF (Lebar 100mm)
+      const pdfWidth = 100; 
+      const pdfHeight = (elHeight * pdfWidth) / elWidth; 
 
       const pdf = new jsPDF({ 
         orientation: 'portrait', 
@@ -86,18 +135,24 @@ export default function HRDSlipCenter() {
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Slip_Gaji_${slipData.nama}_${slipData.periode}.pdf`);
+      
     } catch (error) {
       console.error(error);
       alert("Gagal men-download PDF.");
     } finally {
+      // Munculkan tombolnya lagi & kembalikan style seperti semula
       if (btn) btn.style.display = 'flex';
+      if (originalStyle) {
+        element.setAttribute('style', originalStyle);
+      } else {
+        element.removeAttribute('style');
+      }
     }
   };
-
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 pb-24 font-sans p-4 flex flex-col items-center pt-8">
       
-      {/* HEADER NAdsVIGASI */}
+      {/* HEADER NAVIGASI */}
       <div className="w-full max-w-md flex items-center justify-between mb-6">
         <Link href="/owner" className="p-2.5 bg-slate-800 text-slate-400 rounded-full hover:text-white transition-colors">
           <ChevronLeft size={20} />
@@ -108,7 +163,7 @@ export default function HRDSlipCenter() {
         <div className="w-10 h-10"></div>
       </div>
 
-      {/* PANEL PEMILIH KARYAWAN (POV HRD) */}
+      {/* Dropdown Pemilih Karyawan */}
       <div className="w-full max-w-md bg-slate-800 p-4 rounded-2xl border border-slate-700/60 shadow-xl mb-5">
         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pilih Slip Gaji Karyawan</label>
         <select 
@@ -123,22 +178,16 @@ export default function HRDSlipCenter() {
         </select>
       </div>
 
-      {/* PRATINJAU KERTAS SLIP GAJI */}
+      {/* Lembar Slip Gaji */}
       <div className="w-full max-w-md bg-white text-zinc-900 p-6 rounded-t-xl shadow-2xl relative min-h-[100px]">
         {loadingSlip ? (
-          <div className="h-48 flex items-center justify-center text-xs font-bold text-zinc-400 animate-pulse">Menarik data dari keuangan...</div>
+          <div className="h-48 flex items-center justify-center text-xs font-bold text-zinc-400 animate-pulse">Menghitung akumulasi pemotongan...</div>
         ) : slipData ? (
           <div ref={slipRef} className="bg-white p-2">
             
-            {/* FIX KOP SURAT: TEKS DIHAPUS, LOGO JADI MASKOT BESAR */}
             <div className="text-center border-b-2 border-zinc-900 pb-4 mb-5 flex flex-col items-center justify-center">
               <div className="w-full h-24 relative flex items-center justify-center mb-2">
-                <img 
-                  src="/logo.png" 
-                  alt="Logo Kopi Bara" 
-                  crossOrigin="anonymous"
-                  className="max-w-[240px] max-h-full object-contain" 
-                />
+                <img src="/logo.png" alt="Logo Kopi Bara" crossOrigin="anonymous" className="max-w-[240px] max-h-full object-contain" />
               </div>
               <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Dokumen Rahasia &amp; Pribadi (Salinan HRD)</p>
             </div>
@@ -151,7 +200,7 @@ export default function HRDSlipCenter() {
                 <div className="flex justify-between"><span className="text-zinc-500">Periode Gaji</span><span className="font-bold text-indigo-600">{slipData.periode}</span></div>
               </div>
 
-              {/* RINCIAN PENDAPATAN */}
+              {/* RECEIPT PENDAPATAN */}
               <div>
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2 border-b border-emerald-100 pb-1">Penerimaan (Pendapatan)</h3>
                 <div className="space-y-2 text-xs font-medium">
@@ -165,12 +214,28 @@ export default function HRDSlipCenter() {
                 </div>
               </div>
 
-              {/* RINCIAN POTONGAN */}
+              {/* RECEIPT POTONGAN MULTI-ITEM (KASBON + CICILAN TETAP) */}
               <div>
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-2 border-b border-rose-100 pb-1">Pemotongan</h3>
                 <div className="space-y-2 text-xs font-medium">
-                  <div className="flex justify-between"><span>Cicilan / Kasbon Berjalan</span><span className="text-rose-600">-{formatIDR(slipData.cicilan)}</span></div>
+                  {slipData.arrayPotongan && slipData.arrayPotongan.length > 0 ? (
+                    slipData.arrayPotongan.map((potong: any, idx: number) => (
+                      <div key={idx} className="flex justify-between">
+                        <span className="capitalize">{potong.label}</span>
+                        <span className="text-rose-600 font-bold">-{formatIDR(potong.nominal)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between text-zinc-400 italic text-[11px]">
+                      <span>Tidak Ada Potongan Bulan Ini</span><span>Rp 0</span>
+                    </div>
+                  )}
                 </div>
+                {slipData.totalPotonganPasti > 0 && (
+                  <div className="flex justify-between text-xs font-bold text-rose-700 mt-2 pt-2 border-t border-dashed border-zinc-200">
+                    <span>TOTAL POTONGAN GAJI</span><span>-{formatIDR(slipData.totalPotonganPasti)}</span>
+                  </div>
+                )}
               </div>
 
               {/* TAKE HOME PAY */}
@@ -187,9 +252,7 @@ export default function HRDSlipCenter() {
                     <MessageSquare size={12} />
                     <span>Catatan &amp; Evaluasi Owner</span>
                   </div>
-                  <p className="text-xs text-zinc-600 leading-relaxed font-medium italic">
-                    &ldquo;{slipData.catatanOwner}&rdquo;
-                  </p>
+                  <p className="text-xs text-zinc-600 leading-relaxed font-medium italic">&ldquo;{slipData.catatanOwner}&rdquo;</p>
                 </div>
               )}
             </div>

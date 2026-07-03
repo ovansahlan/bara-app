@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, FileDown, ShieldCheck, DownloadCloud, MessageSquare } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
 export default function SlipGajiKru() {
@@ -26,11 +26,53 @@ export default function SlipGajiKru() {
 
     const fetchSlipData = async (nama: string, cabang: string) => {
       try {
-        const res = await fetch(`/api/kru/slip?nama=${nama}&cabang=${cabang}`);
-        const data = await res.json();
-        if (data.success) setSlipData(data.data);
+        // TWEAK: Triple Fetch! Tarik data Gaji, Kasbon, dan Cicilan sekaligus
+        const [resSlip, resKasbon, resCicilan] = await Promise.all([
+          fetch(`/api/kru/slip?nama=${nama}&cabang=${cabang}`, { cache: 'no-store' }),
+          fetch(`/api/kru/kasbon?nama=${nama}&t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/kru/cicilan?nama=${nama}&t=${Date.now()}`, { cache: 'no-store' })
+        ]);
+
+        const dataSlip = await resSlip.json();
+        const dataKasbon = await resKasbon.json();
+        const dataCicilan = await resCicilan.json();
+
+        if (dataSlip.success) {
+          let finalSlip = { ...dataSlip.data };
+          let listPotonganKustom: any[] = [];
+          let totalSemuaPotongan = 0;
+
+          // A. Masukkan Data Kasbon Berjalan
+          if (dataKasbon.success && dataKasbon.data.totalKasbon > 0) {
+            listPotonganKustom.push({
+              label: 'Kasbon Berjalan (Bulan Ini)',
+              nominal: dataKasbon.data.totalKasbon
+            });
+            totalSemuaPotongan += dataKasbon.data.totalKasbon;
+          }
+
+          // B. Masukkan Data Cicilan Tetap Aktif
+          if (dataCicilan.success && dataCicilan.data.list.length > 0) {
+            dataCicilan.data.list.forEach((item: any) => {
+              listPotonganKustom.push({
+                label: `${item.deskripsi} (${item.tenor})`,
+                nominal: item.nominal
+              });
+              totalSemuaPotongan += item.nominal;
+            });
+          }
+
+          // Simpan rincian potongan ke dalam objek Slip
+          finalSlip.arrayPotongan = listPotonganKustom;
+          finalSlip.totalPotonganPasti = totalSemuaPotongan;
+          
+          // Re-kalkulasi Gaji Bersih (Take Home Pay)
+          finalSlip.takeHomePay = finalSlip.totalPendapatan - totalSemuaPotongan;
+
+          setSlipData(finalSlip);
+        }
       } catch (e) {
-        console.error("Gagal menarik data slip", e);
+        console.error("Gagal menarik data slip terpadu", e);
       } finally {
         setLoading(false);
       }
@@ -45,22 +87,30 @@ export default function SlipGajiKru() {
     const element = slipRef.current;
     if (!element) return;
 
-    const btn = document.getElementById('btn-download');
+    // Sembunyikan tombol saat difoto (Ganti ID jadi 'btn-download-hrd' khusus di file Owner!)
+    const btn = document.getElementById('btn-download'); 
     if (btn) btn.style.display = 'none';
 
-    try {
-      const canvas = await html2canvas(element, { 
-        scale: 2,
-        useCORS: true,
+    // Kunci ukuran tampilan agar tidak ambruk saat direkam
+    const originalStyle = element.getAttribute('style');
+    element.style.width = '500px';
+    element.style.margin = '0 auto';
 
+    try {
+      // SENJATA BARU: html-to-image (Membaca Tailwind & SVG dengan sempurna)
+      const imgData = await toPng(element, { 
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2 // Resolusi HD
       });
-      const imgData = canvas.toDataURL('image/png');
       
-      // FIX: Hitung ukuran kertas langsung dari dimensi kanvas (Bebas Crash)
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const pdfWidth = 210; // Lebar standar A4 (mm)
-      const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth; 
+      // Ukuran asli elemen HTML
+      const elWidth = element.offsetWidth;
+      const elHeight = element.offsetHeight;
+      
+      // Rasio ukuran kertas PDF (Lebar 100mm)
+      const pdfWidth = 100; 
+      const pdfHeight = (elHeight * pdfWidth) / elWidth; 
 
       const pdf = new jsPDF({ 
         orientation: 'portrait', 
@@ -69,12 +119,19 @@ export default function SlipGajiKru() {
       });
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Slip_Gaji_${profilKru.nama}_${slipData.periode}.pdf`);
+      pdf.save(`Slip_Gaji_${slipData.nama}_${slipData.periode}.pdf`);
+      
     } catch (error) {
       console.error(error);
       alert("Gagal men-download PDF.");
     } finally {
+      // Munculkan tombolnya lagi & kembalikan style seperti semula
       if (btn) btn.style.display = 'flex';
+      if (originalStyle) {
+        element.setAttribute('style', originalStyle);
+      } else {
+        element.removeAttribute('style');
+      }
     }
   };
 
@@ -97,7 +154,6 @@ export default function SlipGajiKru() {
       {/* KERTAS SLIP GAJI (Target Render PDF) */}
       <div className="w-full max-w-md bg-white p-6 rounded-t-xl shadow-2xl relative" ref={slipRef}>
         
-        {/* KOP SURAT BARU: JUDUL TEKS DIHAPUS, LOGO DIPERBESAR */}
         <div className="text-center border-b-2 border-zinc-900 pb-4 mb-5 flex flex-col items-center justify-center">
           <div className="w-full h-24 relative flex items-center justify-center mb-2">
             <img 
@@ -111,7 +167,7 @@ export default function SlipGajiKru() {
         </div>
 
         {loading ? (
-          <div className="h-64 flex items-center justify-center text-xs font-bold text-zinc-400 animate-pulse">Menyiapkan Dokumen...</div>
+          <div className="h-64 flex items-center justify-center text-xs font-bold text-zinc-400 animate-pulse">Menghitung kalkulasi pemotongan...</div>
         ) : slipData ? (
           <div className="space-y-6">
             
@@ -136,12 +192,28 @@ export default function SlipGajiKru() {
               </div>
             </div>
 
-            {/* RINCIAN POTONGAN */}
+            {/* RINCIAN POTONGAN (DINAMIS) */}
             <div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-2 border-b border-rose-100 pb-1">Pemotongan</h3>
               <div className="space-y-2 text-xs font-medium">
-                <div className="flex justify-between"><span>Cicilan / Kasbon Berjalan</span><span className="text-rose-600">-{formatIDR(slipData.cicilan)}</span></div>
+                {slipData.arrayPotongan && slipData.arrayPotongan.length > 0 ? (
+                  slipData.arrayPotongan.map((potong: any, idx: number) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="capitalize">{potong.label}</span>
+                      <span className="text-rose-600 font-bold">-{formatIDR(potong.nominal)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex justify-between text-zinc-400 italic text-[11px]">
+                    <span>Tidak Ada Potongan Bulan Ini</span><span>Rp 0</span>
+                  </div>
+                )}
               </div>
+              {slipData.totalPotonganPasti > 0 && (
+                <div className="flex justify-between text-xs font-bold text-rose-700 mt-2 pt-2 border-t border-dashed border-zinc-200">
+                  <span>TOTAL POTONGAN GAJI</span><span>-{formatIDR(slipData.totalPotonganPasti)}</span>
+                </div>
+              )}
             </div>
 
             {/* TAKE HOME PAY */}
