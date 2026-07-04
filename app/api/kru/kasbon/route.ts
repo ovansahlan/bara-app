@@ -14,6 +14,21 @@ const getAuthSheets = () => {
   return { sheets: google.sheets({ version: 'v4', auth }), spreadsheetId };
 };
 
+// HELPER: Penjaga agar tanggal serial Google Sheets tetap tampil cantik di HP Kru
+const normalisasiTanggal = (str: string) => {
+  if (!str) return '-';
+  str = str.trim();
+  if (/^\d+$/.test(str)) {
+    const serial = parseInt(str, 10);
+    const jsDate = new Date((serial - 25569) * 24 * 3600 * 1000);
+    const tgl = String(jsDate.getUTCDate()).padStart(2, '0');
+    const bln = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+    const thn = jsDate.getUTCFullYear();
+    return `${thn}-${bln}-${tgl}`;
+  }
+  return str;
+};
+
 // MENGAMBIL DATA RIWAYAT & TOTAL KASBON
 export async function GET(request: Request) {
   try {
@@ -39,7 +54,7 @@ export async function GET(request: Request) {
         const status = (row[4] || '').trim();
         
         riwayat.push({
-          tanggal: row[0] || '-',
+          tanggal: normalisasiTanggal(row[0]), // Terapkan Normalizer
           nominal: nominal,
           keperluan: row[3] || '-',
           status: status
@@ -62,19 +77,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nama, nominal, keperluan } = body;
+    const { tanggal, nama, nominal, keperluan } = body;
 
     if (!nama || !nominal || !keperluan) {
       return NextResponse.json({ error: 'Data pengajuan belum lengkap.' }, { status: 400 });
     }
 
-    // Ambil tanggal real-time
-    const today = new Date();
-    const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-    const tgl = String(localDate.getDate()).padStart(2, '0');
-    const bln = String(localDate.getMonth() + 1).padStart(2, '0');
-    const thn = localDate.getFullYear();
-    const formatTanggal = `${thn}-${bln}-${tgl}`; // Format: 2026-07-03
+    // Gunakan tanggal dari form (Bisa Backdate). Jika kosong, baru pakai hari ini.
+    let formatTanggal = tanggal;
+    if (!formatTanggal) {
+      const today = new Date();
+      const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const tgl = String(localDate.getDate()).padStart(2, '0');
+      const bln = String(localDate.getMonth() + 1).padStart(2, '0');
+      const thn = localDate.getFullYear();
+      formatTanggal = `${thn}-${bln}-${tgl}`;
+    }
 
     const { sheets, spreadsheetId } = getAuthSheets();
     const barisBaru = [formatTanggal, nama.toLowerCase(), nominal, keperluan, 'Belum Lunas'];
