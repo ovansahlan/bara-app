@@ -44,6 +44,20 @@ export async function GET(request: Request) {
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
+    // HELPER JURUS MAUT: Mengubah Nomor Serial Google Sheets Menjadi Tanggal Standar YYYY-MM-DD
+    const bersihkanTanggalSheets = (tglStr: string) => {
+      if (/^\d+$/.test(tglStr)) {
+        const serial = parseInt(tglStr, 10);
+        // Rumus konversi milidetik kalender Google Sheets (Base epoch: 30 Des 1899)
+        const jsDate = new Date((serial - 25569) * 24 * 3600 * 1000);
+        const tgl = String(jsDate.getUTCDate()).padStart(2, '0');
+        const bln = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+        const thn = jsDate.getUTCFullYear();
+        return `${thn}-${bln}-${tgl}`;
+      }
+      return tglStr;
+    };
+
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
     let pengeluaranHarian = 0;
     let kasbonHarian = 0;
@@ -53,8 +67,11 @@ export async function GET(request: Request) {
 
     // 1. Penjualan
     (resPenjualan.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0] ? row[0].toString().trim() : '';
+      let rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
+      
+      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiTunaiBulanan += parseRupiah(row[3]);
       }
@@ -69,8 +86,11 @@ export async function GET(request: Request) {
 
     // 2. Pengeluaran
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0] ? row[0].toString().trim() : '';
+      let rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
+
+      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+      
       const nominal = parseRupiah(row[7]);
       if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
         akumulasiPengeluaranBulanan += nominal;
@@ -80,14 +100,15 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Kasbon (HANYA MENGHITUNG YANG STATUSNYA "BELUM LUNAS")
+    // 3. Kasbon 
     (resKasbon.data.values || []).slice(1).forEach(row => {
-      const rowTanggal = row[0] ? row[0].toString().trim() : '';
-      const statusKasbon = row[4] ? row[4].toString().toLowerCase().trim() : ''; // Ambil Kolom E (Status)
+      let rowTanggal = row[0] ? row[0].toString().trim() : '';
+      const statusKasbon = row[4] ? row[4].toString().toLowerCase().trim() : ''; 
       
       if (!rowTanggal) return;
 
-      // Filter: Hanya proses jika statusnya Belum Lunas
+      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+
       if (statusKasbon === 'belum lunas') {
         const nominal = parseRupiah(row[2]);
         if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
@@ -99,14 +120,14 @@ export async function GET(request: Request) {
       }
     });
 
-    // 4. Moving Average Gudang HPP dengan Pembulatan Matematika Bulat
+    // 4. Moving Average Gudang HPP
     const kalkulasiGudang: Record<string, { totalQtyIn: number; totalCostIn: number; totalQtyOut: number }> = {};
     const rawStokIn = resStokIn.data.values || [];
     const rawStokOut = resStokOut.data.values || [];
     
     rawStokIn.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; 
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyIn += parseQty(row[3]);
       kalkulasiGudang[idStr].totalCostIn += parseRupiah(row[5]);
@@ -114,7 +135,7 @@ export async function GET(request: Request) {
 
     rawStokOut.slice(1).forEach(row => {
       const idStr = row[1] ? row[1].toString().trim() : '';
-      if (!idStr || idStr.toLowerCase() === 'id produk') return; // Saring header
+      if (!idStr || idStr.toLowerCase() === 'id produk') return; 
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
       kalkulasiGudang[idStr].totalQtyOut += parseQty(row[3]);
     });
@@ -130,8 +151,6 @@ export async function GET(request: Request) {
     });
 
     totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
-    
-    // RUMUS FINAL LACI KASIR: (Omset Tunai - Pengeluaran Kasir - Kasbon Belum Lunas)
     const saldoLaciKasir = Math.round(akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan);
     
     const historyStokInFiltered = rawStokIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
