@@ -16,7 +16,9 @@ export async function GET(request: Request) {
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-    if (!spreadsheetId || !clientEmail || !privateKey) return NextResponse.json({ error: 'Kredensial error' }, { status: 500 });
+    if (!spreadsheetId || !clientEmail || !privateKey) {
+      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
+    }
 
     const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
@@ -27,14 +29,15 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // 🔥 FIX: Tarik 'Penjualan' (Kedai) dan 'Penjualan_Gerobak' sekaligus!
-    const [resPenjualanKedai, resPenjualanGerobak, resPengeluaran, resStokIn, resStokOut, resMasterKru] = await Promise.all([
+    // TARIK 7 TAB UTAMA KEUANGAN BARA COFFEE
+    const [resPenjualan, resPenjualanGrb, resPengeluaranKedai, resPengeluaranGrb, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } })),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master_Kru!A:E' }).catch(() => ({ data: { values: [] } }))
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
 
     const parseRupiah = (val: any) => {
@@ -74,70 +77,67 @@ export async function GET(request: Request) {
       return str;
     };
 
-    const gerobakKru = new Set<string>();
-    (resMasterKru.data.values || []).slice(1).forEach(row => {
-      const namaKru = (row[0] || '').toString().toLowerCase().trim();
-      const divisi = row.some(cell => cell.toString().toLowerCase().trim() === 'gerobak');
-      if (divisi && namaKru) gerobakKru.add(namaKru);
-    });
-
     let omsetKedai = 0, pengeluaranKruKedai = 0, belanjaOwnerKedai = 0, HPPKedai = 0;
     let omsetGerobak = 0, pengeluaranKruGerobak = 0, belanjaOwnerGerobak = 0, HPPGerobak = 0;
 
     const pemakaianKedaiMap: Record<string, { nama: string; qty: number; nilai: number }> = {};
     const pemakaianGerobakMap: Record<string, { nama: string; qty: number; nilai: number }> = {};
-    const rawHistoryBelanjaOwner: any[] = [];
+    
+    const listBelanjaOwner: any[] = [];
+    const listPengeluaranKru: any[] = [];
 
-    // 1A. HITUNG OMSET KEDAI
-    (resPenjualanKedai.data.values || []).slice(1).forEach(row => {
-      let tgl = row[0] ? row[0].toString().trim() : '';
-      if (!tgl) return;
-      tgl = normalisasiTanggal(tgl);
-      if (tgl.startsWith(prefixTanggalWeb)) {
-        omsetKedai += parseRupiah(row[7]);
-      }
+    // 1. OMSET KEDAI & GEROBAK
+    (resPenjualan.data.values || []).slice(1).forEach(row => {
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
+      if (tgl.startsWith(prefixTanggalWeb)) omsetKedai += parseRupiah(row[7]);
+    });
+    (resPenjualanGrb.data.values || []).slice(1).forEach(row => {
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
+      if (tgl.startsWith(prefixTanggalWeb)) omsetGerobak += parseRupiah(row[7]);
     });
 
-    // 1B. HITUNG OMSET GEROBAK DARI TAB BARU
-    (resPenjualanGerobak.data.values || []).slice(1).forEach(row => {
-      let tgl = row[0] ? row[0].toString().trim() : '';
+    // 2. PENGELUARAN KRU KEDAI
+    (resPengeluaranKedai.data.values || []).slice(1).forEach(row => {
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       if (!tgl) return;
-      tgl = normalisasiTanggal(tgl);
-      if (tgl.startsWith(prefixTanggalWeb)) {
-        omsetGerobak += parseRupiah(row[7]);
-      }
-    });
-
-    // 2. PROSES DISTRIBUSI PENGELUARAN & LOG BELANJA
-    (resPengeluaran.data.values || []).slice(1).forEach(row => {
-      let tgl = row[0] ? row[0].toString().trim() : '';
-      const penginput = (row[1] || '').toString().toLowerCase().trim();
-      if (!tgl) return;
-
-      tgl = normalisasiTanggal(tgl);
       const nominal = parseRupiah(row[7]);
-      
-      rawHistoryBelanjaOwner.push({
+      if (tgl.startsWith(prefixTanggalWeb)) pengeluaranKruKedai += nominal;
+      listPengeluaranKru.push({ tanggal: tgl, outlet: 'Kedai', barang: row[3] || 'Bahan', qty: parseQty(row[4]), satuan: row[5] || 'Pcs', nominal, kategori: row[2] || 'Bar' });
+    });
+
+    // 3. PENGELUARAN KRU GEROBAK
+    (resPengeluaranGrb.data.values || []).slice(1).forEach(row => {
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
+      if (!tgl) return;
+      const nominal = parseRupiah(row[7]);
+      if (tgl.startsWith(prefixTanggalWeb)) pengeluaranKruGerobak += nominal;
+      listPengeluaranKru.push({ tanggal: tgl, outlet: 'Gerobak', barang: row[3] || 'Bahan', qty: parseQty(row[4]), satuan: row[5] || 'Pcs', nominal, kategori: row[2] || 'Bar' });
+    });
+
+    // 4. BELANJA OWNER (DENGAN FILTER KOLOM E / INDEX 4 PERUNTUKAN)
+    (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
+      if (!tgl) return;
+      const peruntukan = (row[4] || '').toString().toLowerCase().trim(); // Kolom E
+      const nominal = parseRupiah(row[7]); // Kolom H
+
+      if (tgl.startsWith(prefixTanggalWeb)) {
+        if (peruntukan === 'kedai') belanjaOwnerKedai += nominal;
+        if (peruntukan === 'gerobak') belanjaOwnerGerobak += nominal;
+      }
+
+      listBelanjaOwner.push({
         tanggal: tgl,
-        kategori: row[2] || 'Lain-lain',
-        barang: row[3] || 'Barang Tanpa Nama',
+        peruntukan: peruntukan === 'gerobak' ? 'Gerobak' : 'Kedai',
+        barang: row[3] || 'Aset',
         qty: parseQty(row[4]),
         satuan: row[5] || 'Pcs',
-        nominal: nominal
+        nominal: nominal,
+        kategori: row[2] || 'Owner'
       });
-
-      if (tgl.startsWith(prefixTanggalWeb)) {
-        if (gerobakKru.has(penginput)) {
-          if (penginput === 'owner' || penginput === 'pusat') belanjaOwnerGerobak += nominal;
-          else pengeluaranKruGerobak += nominal; 
-        } else {
-          if (penginput === 'owner' || penginput === 'pusat') belanjaOwnerKedai += nominal;
-          else pengeluaranKruKedai += nominal;
-        }
-      }
     });
 
-    // 3. MOVING AVERAGE HPP & LOGISTIK TERPAKAI
+    // 5. SEKTOR GUDANG & HPP LOGISTIK
     const databaseHPP: Record<string, { totalQtyIn: number; totalCostIn: number }> = {};
     const rawStokIn = resStokIn.data.values || [];
     const rawStokOut = resStokOut.data.values || [];
@@ -151,53 +151,66 @@ export async function GET(request: Request) {
     });
 
     rawStokOut.slice(1).forEach(row => {
-      let tgl = row[0] ? row[0].toString().trim() : '';
+      let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       const idStr = row[1] ? row[1].toString().trim() : '';
       const namaBarang = row[2] || 'Bahan';
       const qtyOut = parseQty(row[3]);
       const tujuan = (row[8] || row[4] || '').toString().toLowerCase().trim();
 
-      if (!tgl || !idStr || idStr.toLowerCase() === 'id produk') return;
-      tgl = normalisasiTanggal(tgl);
+      if (!tgl || !idStr || idStr.toLowerCase() === 'id produk' || !tgl.startsWith(prefixTanggalWeb)) return;
 
-      if (tgl.startsWith(prefixTanggalWeb)) {
-        const itemHPP = databaseHPP[idStr];
-        const hargaRata2 = itemHPP && itemHPP.totalQtyIn > 0 ? (itemHPP.totalCostIn / itemHPP.totalQtyIn) : 0;
-        const nilaiKerugianHPP = Math.round(qtyOut * hargaRata2);
+      const itemHPP = databaseHPP[idStr];
+      const hargaRata2 = itemHPP && itemHPP.totalQtyIn > 0 ? (itemHPP.totalCostIn / itemHPP.totalQtyIn) : 0;
+      const nilaiKerugianHPP = Math.round(qtyOut * hargaRata2);
 
-        if (tujuan.includes('gerobak')) {
-          HPPGerobak += nilaiKerugianHPP;
-          if (!pemakaianGerobakMap[idStr]) pemakaianGerobakMap[idStr] = { nama: namaBarang, qty: 0, nilai: 0 };
-          pemakaianGerobakMap[idStr].qty += qtyOut;
-          pemakaianGerobakMap[idStr].nilai += nilaiKerugianHPP;
-        } else {
-          HPPKedai += nilaiKerugianHPP;
-          if (!pemakaianKedaiMap[idStr]) pemakaianKedaiMap[idStr] = { nama: namaBarang, qty: 0, nilai: 0 };
-          pemakaianKedaiMap[idStr].qty += qtyOut;
-          pemakaianKedaiMap[idStr].nilai += nilaiKerugianHPP;
-        }
+      if (tujuan.includes('gerobak')) {
+        HPPGerobak += nilaiKerugianHPP;
+        if (!pemakaianGerobakMap[idStr]) pemakaianGerobakMap[idStr] = { nama: namaBarang, qty: 0, nilai: 0 };
+        pemakaianGerobakMap[idStr].qty += qtyOut;
+        pemakaianGerobakMap[idStr].nilai += nilaiKerugianHPP;
+      } else {
+        HPPKedai += nilaiKerugianHPP;
+        if (!pemakaianKedaiMap[idStr]) pemakaianKedaiMap[idStr] = { nama: namaBarang, qty: 0, nilai: 0 };
+        pemakaianKedaiMap[idStr].qty += qtyOut;
+        pemakaianKedaiMap[idStr].nilai += nilaiKerugianHPP;
       }
     });
 
-    const labaBersihKedai = Math.round(omsetKedai - (pengeluaranKruKedai + belanjaOwnerKedai) - HPPKedai);
-    const labaBersihGerobak = Math.round(omsetGerobak - (pengeluaranKruGerobak + belanjaOwnerGerobak) - HPPGerobak);
-    const totalLabaGabungan = Math.round(labaBersihKedai + labaBersihGerobak);
-
     let nilaiAsetGudangTerpusat = 0;
-    // ... Hitung aset (disingkat)
+    const kalkulasiGudang: Record<string, { qtyIn: number; costIn: number; qtyOut: number }> = {};
+    rawStokIn.slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr || idStr.toLowerCase() === 'id produk') return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { qtyIn: 0, costIn: 0, qtyOut: 0 };
+      kalkulasiGudang[idStr].qtyIn += parseQty(row[3]);
+      kalkulasiGudang[idStr].costIn += parseRupiah(row[5]);
+    });
+    rawStokOut.slice(1).forEach(row => {
+      const idStr = row[1] ? row[1].toString().trim() : '';
+      if (!idStr || idStr.toLowerCase() === 'id produk') return;
+      if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { qtyIn: 0, costIn: 0, qtyOut: 0 };
+      kalkulasiGudang[idStr].qtyOut += parseQty(row[3]);
+    });
+    Object.keys(kalkulasiGudang).forEach(id => {
+      const item = kalkulasiGudang[id];
+      const sisa = item.qtyIn - item.qtyOut;
+      if (sisa > 0) nilaiAsetGudangTerpusat += Math.round(sisa * (item.qtyIn > 0 ? (item.costIn / item.qtyIn) : 0));
+    });
 
-    const top10HistoryBelanjaOwner = rawHistoryBelanjaOwner.slice(-10).reverse();
+    const labaBersihKedai = Math.round(omsetKedai - pengeluaranKruKedai - belanjaOwnerKedai - HPPKedai);
+    const labaBersihGerobak = Math.round(omsetGerobak - pengeluaranKruGerobak - belanjaOwnerGerobak - HPPGerobak);
 
     return NextResponse.json({
-      totalLabaGabungan,
+      totalLabaGabungan: labaBersihKedai + labaBersihGerobak,
       kedai: { omset: omsetKedai, pengeluaranKru: pengeluaranKruKedai, belanjaOwner: belanjaOwnerKedai, totalNilaiPemakaian: HPPKedai, labaBersih: labaBersihKedai, pemakaian: Object.values(pemakaianKedaiMap) },
       gerobak: { omset: omsetGerobak, pengeluaranKru: pengeluaranKruGerobak, belanjaOwner: belanjaOwnerGerobak, totalNilaiPemakaian: HPPGerobak, labaBersih: labaBersihGerobak, pemakaian: Object.values(pemakaianGerobakMap) },
-      metricsGudang: { nilaiAsetGudang: nilaiAsetGudangTerpusat, saldoGudangKas: 0 },
-      historyBelanjaOwner: top10HistoryBelanjaOwner
+      metricsGudang: { nilaiAsetGudang: nilaiAsetGudangTerpusat, saldoGudangKas: 50000000 },
+      historyBelanjaOwner: listBelanjaOwner.slice(-15).reverse(),
+      historyPengeluaranKru: listPengeluaranKru.slice(-15).reverse()
     });
 
   } catch (error: any) {
-    console.error('API Owner Core Engine Error:', error);
-    return NextResponse.json({ error: 'Gagal memproses konsol owner pusat.' }, { status: 500 });
+    console.error('API Owner Error:', error);
+    return NextResponse.json({ error: 'Gagal memproses konsol owner.' }, { status: 500 });
   }
 }
