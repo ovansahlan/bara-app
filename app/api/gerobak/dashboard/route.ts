@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -27,9 +29,9 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // FIX 1: Ubah range pencarian kru menjadi 'Master_Kru!A:E'
-    const [resPenjualan, resPengeluaran, resMasterKru] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
+    // 🔥 FIX: Tarik Omset Murni dari Penjualan_Gerobak
+    const [resPenjualanGerobak, resPengeluaran, resMasterKru] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master_Kru!A:E' }).catch(() => ({ data: { values: [] } }))
     ]);
@@ -71,7 +73,6 @@ export async function GET(request: Request) {
       return str;
     };
 
-    // IDENTIFIKASI KRU GEROBAK DARI TAB 'Master_Kru'
     const gerobakKru = new Set<string>();
     (resMasterKru.data.values || []).slice(1).forEach(row => {
       const namaKolomA = (row[0] || '').toString().toLowerCase().trim();
@@ -84,25 +85,23 @@ export async function GET(request: Request) {
     let akumulasiOmsetBulanan = 0;
     const riwayatBelanjaGerobak: any[] = [];
 
-    // 1. HITUNG OMSET HARIAN & BULANAN GEROBAK
-    (resPenjualan.data.values || []).slice(1).forEach(row => {
-      const namaKru = (row[1] || '').toString().toLowerCase().trim(); 
+    // 1. HITUNG OMSET LANGSUNG DARI PENJUALAN GEROBAK
+    (resPenjualanGerobak.data.values || []).slice(1).forEach(row => {
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
-      
-      if (!rowTanggal || !gerobakKru.has(namaKru)) return; 
+      if (!rowTanggal) return; 
       
       rowTanggal = normalisasiTanggal(rowTanggal);
-      const totalBarisOmset = parseRupiah(row[7]); // Kolom H (Total Gross Omset)
+      const totalBarisOmset = parseRupiah(row[7]); 
 
       if (rowTanggal.startsWith(prefixTanggalWeb)) {
-        akumulasiOmsetBulanan += totalBarisOmset; // Tambah ke total akumulasi bulanan
+        akumulasiOmsetBulanan += totalBarisOmset;
       }
       if (rowTanggal === tanggalFilter) {
         omsetHarian.total += totalBarisOmset; 
       }
     });
 
-    // 2. AMBIL DATA PENGELUARAN/BELANJA GEROBAK
+    // 2. AMBIL DATA PENGELUARAN/BELANJA GEROBAK DARI TAB PENGELUARAN
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       const namaKru = (row[1] || '').toString().toLowerCase().trim();
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
@@ -131,7 +130,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       omset: omsetHarian,
       totalKeluar: pengeluaranHarian,
-      totalOmsetBulanIni: akumulasiOmsetBulanan, // FIX 2: Kembalikan data omset bulanan murni
+      totalOmsetBulanIni: akumulasiOmsetBulanan, 
       historyBelanja: top5History 
     });
 
