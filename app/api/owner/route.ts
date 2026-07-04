@@ -29,13 +29,12 @@ export async function GET(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // 🔥 MENARIK 7 TAB SPESIFIK TANPA PERLU MASTER_KRU (Karena sudah terpisah tab)
     const [resPenjualan, resPenjualanGrb, resPengeluaranKedai, resPengeluaranGrb, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })), 
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:H' }).catch(() => ({ data: { values: [] } })), 
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:E' }).catch(() => ({ data: { values: [] } })), // Diperbarui menjadi A:E
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
@@ -87,7 +86,7 @@ export async function GET(request: Request) {
     const listPengeluaranKru: any[] = [];
 
     // ==========================================
-    // 1. PARSING OMSET (DARI TAB MASING-MASING)
+    // 1. PARSING OMSET 
     // ==========================================
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
@@ -99,12 +98,12 @@ export async function GET(request: Request) {
     });
 
     // ==========================================
-    // 2. PARSING PENGELUARAN KRU KEDAI (A-H)
+    // 2. PARSING PENGELUARAN KRU KEDAI 
     // ==========================================
     (resPengeluaranKedai.data.values || []).slice(1).forEach(row => {
       let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       if (!tgl) return;
-      const nominal = parseRupiah(row[7]); // Kolom H
+      const nominal = parseRupiah(row[7]); 
       
       if (tgl.startsWith(prefixTanggalWeb)) pengeluaranKruKedai += nominal;
       
@@ -113,19 +112,19 @@ export async function GET(request: Request) {
         outlet: 'Kedai', 
         kategori: row[2] || 'Bar',
         barang: row[3] || 'Bahan', 
-        qty: parseQty(row[4]), // Kolom E
-        satuan: row[5] || 'Pcs', // Kolom F
+        qty: parseQty(row[4]), 
+        satuan: row[5] || 'Pcs', 
         nominal: nominal 
       });
     });
 
     // ==========================================
-    // 3. PARSING PENGELUARAN KRU GEROBAK (A-H)
+    // 3. PARSING PENGELUARAN KRU GEROBAK 
     // ==========================================
     (resPengeluaranGrb.data.values || []).slice(1).forEach(row => {
       let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       if (!tgl) return;
-      const nominal = parseRupiah(row[7]); // Kolom H
+      const nominal = parseRupiah(row[7]); 
       
       if (tgl.startsWith(prefixTanggalWeb)) pengeluaranKruGerobak += nominal;
       
@@ -134,24 +133,24 @@ export async function GET(request: Request) {
         outlet: 'Gerobak', 
         kategori: row[2] || 'Gerobak',
         barang: row[3] || 'Bahan', 
-        qty: parseQty(row[4]), // Kolom E
-        satuan: row[5] || 'Pcs', // Kolom F
+        qty: parseQty(row[4]), 
+        satuan: row[5] || 'Pcs', 
         nominal: nominal 
       });
     });
 
     // ==========================================
-    // 4. PARSING BELANJA OWNER (ADA KOLOM E: PERUNTUKAN)
+    // 4. 🔥 PARSING BELANJA OWNER (SUDAH FIX 100%)
     // ==========================================
+    // Urutan: Tanggal(0) | Kategori(1) | Keterangan(2) | Nominal(3) | Peruntukan(4)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       if (!tgl) return;
       
-      // PERBAIKAN INDEKS KOLOM
-      const peruntukan = (row[4] || '').toString().toLowerCase().trim(); // Kolom E (Indeks 4)
-      const qtyOwner = parseQty(row[5]); // Kolom F (Indeks 5)
-      const satuanOwner = row[6] || 'Pcs'; // Kolom G (Indeks 6)
-      const nominal = parseRupiah(row[7]); // Kolom H (Indeks 7)
+      const kategori = row[1] || 'Owner';
+      const barang = row[2] || 'Aset';
+      const nominal = parseRupiah(row[3]); // 🔥 SEKARANG MEMBACA INDEKS KE-3
+      const peruntukan = (row[4] || '').toString().toLowerCase().trim(); // 🔥 INDEKS KE-4
 
       if (tgl.startsWith(prefixTanggalWeb)) {
         if (peruntukan === 'kedai') belanjaOwnerKedai += nominal;
@@ -161,16 +160,16 @@ export async function GET(request: Request) {
       listBelanjaOwner.push({
         tanggal: tgl,
         peruntukan: peruntukan === 'gerobak' ? 'Gerobak' : 'Kedai',
-        kategori: row[2] || 'Owner',
-        barang: row[3] || 'Aset',
-        qty: qtyOwner,
-        satuan: satuanOwner,
+        kategori: kategori,
+        barang: barang,
+        qty: 1,      // Diset 1 karena tabel tidak punya kolom kuantitas
+        satuan: '-', // Diset '-' karena tabel tidak punya kolom satuan
         nominal: nominal
       });
     });
 
     // ==========================================
-    // 5. PARSING GUDANG & HPP (Stok Keluar Kolom I: Tujuan)
+    // 5. PARSING GUDANG & HPP 
     // ==========================================
     const databaseHPP: Record<string, { totalQtyIn: number; totalCostIn: number }> = {};
     const rawStokIn = resStokIn.data.values || [];
@@ -189,9 +188,7 @@ export async function GET(request: Request) {
       const idStr = row[1] ? row[1].toString().trim() : '';
       const namaBarang = row[2] || 'Bahan';
       const qtyOut = parseQty(row[3]);
-      
-      // Kolom I (Indeks 8) adalah Tujuan (Gerobak/Kedai)
-      const tujuan = (row[8] || '').toString().toLowerCase().trim();
+      const tujuan = (row[8] || '').toString().toLowerCase().trim(); // Indeks ke 8 (Kolom I)
 
       if (!tgl || !idStr || idStr.toLowerCase() === 'id produk' || !tgl.startsWith(prefixTanggalWeb)) return;
 
