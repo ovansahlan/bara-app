@@ -6,10 +6,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tanggalFilter = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
-    const [year, month, day] = tanggalFilter.split('-');
-    const prefixTanggalID = `/${month}/${year}`; 
-    const prefixTanggalWeb = `${year}-${month}`; 
-    const formatTanggalID = `${day}/${month}/${year}`;
+    // Pecah tanggal target untuk komparasi pintar (Contoh: "2026-07-04" -> 2026, 7, 4)
+    const [targetYear, targetMonth, targetDay] = tanggalFilter.split('-');
+    const targetMonthNum = parseInt(targetMonth, 10);
+    const prefixTanggalWeb = `${targetYear}-${targetMonth}`; // Hasil: "2026-07"
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -44,18 +44,65 @@ export async function GET(request: Request) {
     };
     const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
 
-    // HELPER JURUS MAUT: Mengubah Nomor Serial Google Sheets Menjadi Tanggal Standar YYYY-MM-DD
-    const bersihkanTanggalSheets = (tglStr: string) => {
-      if (/^\d+$/.test(tglStr)) {
-        const serial = parseInt(tglStr, 10);
-        // Rumus konversi milidetik kalender Google Sheets (Base epoch: 30 Des 1899)
+    // 🔥 JURUS UTAMA: Mengubah segala jenis format tanggal dari Sheets menjadi YYYY-MM-DD secara paksa
+    const normalisasiTanggal = (str: string) => {
+      if (!str) return '';
+      str = str.trim();
+
+      // Kasus A: Jika berupa nomor serial Google Sheets (e.g., 46207)
+      if (/^\d+$/.test(str)) {
+        const serial = parseInt(str, 10);
         const jsDate = new Date((serial - 25569) * 24 * 3600 * 1000);
         const tgl = String(jsDate.getUTCDate()).padStart(2, '0');
         const bln = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
         const thn = jsDate.getUTCFullYear();
         return `${thn}-${bln}-${tgl}`;
       }
-      return tglStr;
+
+      // Tentukan karakter pemisah string (/ atau -)
+      const pemisah = str.includes('/') ? '/' : (str.includes('-') ? '-' : '');
+      if (!pemisah) return str;
+
+      const bagian = str.split(pemisah);
+      if (bagian.length !== 3) return str;
+
+      // Kasus B: Jika formatnya sudah YYYY-MM-DD atau YYYY/MM/DD di awal
+      if (bagian[0].length === 4) {
+        const thn = bagian[0];
+        const bln = bagian[1].padStart(2, '0');
+        const tgl = bagian[2].padStart(2, '0');
+        return `${thn}-${bln}-${tgl}`;
+      }
+
+      // Kasus C: Jika tahun ada di belakang (e.g., D/M/YYYY atau M/D/YYYY atau DD/MM/YYYY)
+      if (bagian[2].length === 4 || bagian[2].length === 2) {
+        let thn = bagian[2];
+        if (thn.length === 2) thn = '20' + thn; // Antisipasi format yy
+
+        const p1 = parseInt(bagian[0], 10);
+        const p2 = parseInt(bagian[1], 10);
+
+        let blnNum = p2; 
+        let tglNum = p1;
+
+        // Deteksi Cerdas: Cari angka mana yang bertindak sebagai Bulan berjalan
+        if (p1 === targetMonthNum && p2 !== targetMonthNum) {
+          blnNum = p1;
+          tglNum = p2;
+        } else if (p1 > 12) {
+          tglNum = p1;
+          blnNum = p2;
+        } else if (p2 > 12) {
+          blnNum = p1;
+          tglNum = p2;
+        }
+
+        const blnStr = String(blnNum).padStart(2, '0');
+        const tglStr = String(tglNum).padStart(2, '0');
+        return `${thn}-${blnStr}-${tglStr}`;
+      }
+
+      return str;
     };
 
     const omsetHarian = { tunai: 0, qris: 0, edc: 0, grab: 0, total: 0 };
@@ -65,17 +112,17 @@ export async function GET(request: Request) {
     let akumulasiPengeluaranBulanan = 0;
     let akumulasiKasbonBulanan = 0;
 
-    // 1. Penjualan
+    // 1. Proses Data Penjualan
     (resPenjualan.data.values || []).slice(1).forEach(row => {
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
       
-      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+      rowTanggal = normalisasiTanggal(rowTanggal); // Normalisasi ke YYYY-MM-DD
 
-      if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
+      if (rowTanggal.startsWith(prefixTanggalWeb)) {
         akumulasiTunaiBulanan += parseRupiah(row[3]);
       }
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
+      if (rowTanggal === tanggalFilter) {
         omsetHarian.tunai += parseRupiah(row[3]);
         omsetHarian.qris += parseRupiah(row[4]);
         omsetHarian.edc += parseRupiah(row[5]);
@@ -84,37 +131,37 @@ export async function GET(request: Request) {
       }
     });
 
-    // 2. Pengeluaran
+    // 2. Proses Data Pengeluaran
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       if (!rowTanggal) return;
 
-      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+      rowTanggal = normalisasiTanggal(rowTanggal); // Normalisasi ke YYYY-MM-DD
       
       const nominal = parseRupiah(row[7]);
-      if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
+      if (rowTanggal.startsWith(prefixTanggalWeb)) {
         akumulasiPengeluaranBulanan += nominal;
       }
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
+      if (rowTanggal === tanggalFilter) {
         pengeluaranHarian += nominal;
       }
     });
 
-    // 3. Kasbon 
+    // 3. Proses Data Kasbon
     (resKasbon.data.values || []).slice(1).forEach(row => {
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       const statusKasbon = row[4] ? row[4].toString().toLowerCase().trim() : ''; 
       
       if (!rowTanggal) return;
 
-      rowTanggal = bersihkanTanggalSheets(rowTanggal); // Proteksi konversi otomatis
+      rowTanggal = normalisasiTanggal(rowTanggal); // Normalisasi ke YYYY-MM-DD
 
       if (statusKasbon === 'belum lunas') {
         const nominal = parseRupiah(row[2]);
-        if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
+        if (rowTanggal.startsWith(prefixTanggalWeb)) {
           akumulasiKasbonBulanan += nominal;
         }
-        if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
+        if (rowTanggal === tanggalFilter) {
           kasbonHarian += nominal;
         }
       }
