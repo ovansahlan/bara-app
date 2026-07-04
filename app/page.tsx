@@ -79,7 +79,7 @@ export default function HomeDashboard() {
             <img 
               src="/logo.png" 
               alt="Logo Kopi Bara" 
-              className="h-8 sm:h-10 w-auto object-contain drop-shadow-sm" 
+              className="h-12 sm:h-12 w-auto object-contain drop-shadow-sm" 
               crossOrigin="anonymous"
             />
             <div className="hidden sm:block border-l-2 border-slate-200 pl-3 ml-1">
@@ -256,7 +256,7 @@ export default function HomeDashboard() {
                       </linearGradient>
                     </defs>
                     <Tooltip
-                      formatter={(value: number) => [`Rp ${formatIDR(value)}`, 'Omset']}
+                      formatter={(value: any) => [`Rp ${formatIDR(Number(value || 0))}`, 'Omset']}
                       labelStyle={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}
                       itemStyle={{ fontSize: '12px', fontWeight: '900', color: '#1e293b' }}
                     />
