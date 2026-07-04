@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   RefreshCw, Calendar, TrendingUp, Wallet, Landmark, 
   PackageMinus, ShieldCheck, LogOut, Boxes, Award, FileDown,
-  ChevronRight, ArrowRight
+  ChevronRight, ArrowRight, History, ShoppingBag
 } from 'lucide-react';
 
 export default function DashboardOwner() {
@@ -35,6 +35,16 @@ export default function DashboardOwner() {
 
   const formatIDR = (val: number) => new Intl.NumberFormat('id-ID').format(val || 0);
   const getLabelBulan = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+  // DATA DUMMY SEMENTARA UNTUK RIWAYAT 5-10 BELANJA OWNER
+  const historyBelanja = data?.historyBelanjaOwner || [
+    { tanggal: '2026-07-04', barang: 'Biji Kopi Arabika Pusat', qty: 20, satuan: 'Kg', kategori: 'Bar', nominal: 3000000 },
+    { tanggal: '2026-07-03', barang: 'Susu UHT Diamond', qty: 10, satuan: 'Dus', kategori: 'Bar', nominal: 1700000 },
+    { tanggal: '2026-07-02', barang: 'Cup Plastik 16oz + Sablon', qty: 5, satuan: 'Dus', kategori: 'Lain-lain', nominal: 1250000 },
+    { tanggal: '2026-07-02', barang: 'Gas Elpiji 3kg', qty: 4, satuan: 'Tabung', kategori: 'Dapur', nominal: 88000 },
+    { tanggal: '2026-07-01', barang: 'Sirup Premium Pandan', qty: 12, satuan: 'Botol', kategori: 'Bar', nominal: 960000 },
+    { tanggal: '2026-06-29', barang: 'Tisu Wajah Napkin', qty: 2, satuan: 'Dus', kategori: 'Lain-lain', nominal: 480000 },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-32 font-sans selection:bg-blue-100 selection:text-blue-900">
@@ -140,7 +150,7 @@ export default function DashboardOwner() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operasional & Belanja</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operasional &amp; Belanja</p>
                 <h3 className="text-xl font-black text-rose-600">
                   Rp {data ? formatIDR(viewCabang === 'gabungan' ? (data.kedai.pengeluaranKru + data.kedai.belanjaOwner + data.gerobak.pengeluaranKru + data.gerobak.belanjaOwner) : (data[viewCabang].pengeluaranKru + data[viewCabang].belanjaOwner)) : '0'}
                 </h3>
@@ -183,6 +193,50 @@ export default function DashboardOwner() {
 
         </div>
 
+        {/* 🆕 FITUR BARU: SCROLLABLE FEED LOG 10 INPUT BELANJA OWNER TERAKHIR */}
+        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+          <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-2">
+              <History size={14} className="text-blue-600" /> 
+              Log 10 Belanja Owner Terakhir
+            </span>
+            <span className="text-[8px] font-bold bg-white px-2 py-1 rounded-full border border-slate-200">Live Sheets Log</span>
+          </div>
+          
+          {/* Scroll container berketinggian tetap */}
+          <div className="divide-y divide-slate-100 text-xs max-h-[260px] overflow-y-auto">
+            {historyBelanja.length > 0 ? historyBelanja.map((item: any, i: number) => (
+              <div key={i} className="p-3.5 flex justify-between items-center hover:bg-slate-50/60 transition-colors">
+                <div className="min-w-0 pr-4 space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase bg-slate-100 px-1.5 py-0.5 rounded tracking-wide">
+                      {item.tanggal}
+                    </span>
+                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 rounded ${
+                      item.kategori === 'Bar' ? 'bg-blue-50 text-blue-600' : item.kategori === 'Dapur' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {item.kategori}
+                    </span>
+                  </div>
+                  <span className="font-bold text-slate-800 block truncate text-[11px] sm:text-xs">
+                    {item.barang}
+                  </span>
+                  <span className="text-[9px] font-medium text-slate-400 block">
+                    Kuantitas: {item.qty} {item.satuan}
+                  </span>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-black text-slate-900 bg-slate-100/80 px-2.5 py-1.5 rounded-xl block">
+                    Rp {formatIDR(item.nominal)}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <p className="p-10 text-center text-xs text-slate-400 italic">Belum ada riwayat belanja yang masuk.</p>
+            )}
+          </div>
+        </div>
+
         {/* DAFTAR PEMAKAIAN BAHAN (Hanya muncul jika bukan tab gabungan) */}
         {viewCabang !== 'gabungan' && data && (
           <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-500">
@@ -215,7 +269,7 @@ export default function DashboardOwner() {
 
       </div>
 
-      {/* FIXED FLOATING ACTION DOCK (GLASSMORPHISM WHITE) */}
+      {/* FIXED FLOATING ACTION DOCK */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-sm z-40">
         <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-full shadow-2xl shadow-slate-200/50 p-2 px-6 flex justify-between items-center">
           

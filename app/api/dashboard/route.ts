@@ -80,16 +80,22 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Kasbon
+    // 3. Kasbon (HANYA MENGHITUNG YANG STATUSNYA "BELUM LUNAS")
     (resKasbon.data.values || []).slice(1).forEach(row => {
       const rowTanggal = row[0] ? row[0].toString().trim() : '';
+      const statusKasbon = row[4] ? row[4].toString().toLowerCase().trim() : ''; // Ambil Kolom E (Status)
+      
       if (!rowTanggal) return;
-      const nominal = parseRupiah(row[2]);
-      if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
-        akumulasiKasbonBulanan += nominal;
-      }
-      if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
-        kasbonHarian += nominal;
+
+      // Filter: Hanya proses jika statusnya Belum Lunas
+      if (statusKasbon === 'belum lunas') {
+        const nominal = parseRupiah(row[2]);
+        if (rowTanggal.startsWith(prefixTanggalWeb) || rowTanggal.endsWith(prefixTanggalID)) {
+          akumulasiKasbonBulanan += nominal;
+        }
+        if (rowTanggal === tanggalFilter || rowTanggal === formatTanggalID) {
+          kasbonHarian += nominal;
+        }
       }
     });
 
@@ -124,9 +130,10 @@ export async function GET(request: Request) {
     });
 
     totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
+    
+    // RUMUS FINAL LACI KASIR: (Omset Tunai - Pengeluaran Kasir - Kasbon Belum Lunas)
     const saldoLaciKasir = Math.round(akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan);
     
-    // KODE PERBAIKAN: Memastikan Baris Header Judul Kolom Dibuang dari Histori Tampilan Depan
     const historyStokInFiltered = rawStokIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
     const historyStokOutFiltered = rawStokOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
 
@@ -136,8 +143,8 @@ export async function GET(request: Request) {
       totalKasbon: kasbonHarian,
       saldoLaciKasir: saldoLaciKasir,
       nilaiAsetGudang: totalNilaiAsetGudangAktif,
-      historyStokIn: historyStokInFiltered.slice(-5).reverse(),   // Mengambil 5 mutasi asli terbaru
-      historyStokOut: historyStokOutFiltered.slice(-5).reverse() // Mengambil 5 mutasi asli terbaru
+      historyStokIn: historyStokInFiltered.slice(-5).reverse(),   
+      historyStokOut: historyStokOutFiltered.slice(-5).reverse() 
     });
 
   } catch (error: any) {
