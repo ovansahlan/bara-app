@@ -38,11 +38,9 @@ export default function PengeluaranKasSaaS() {
   const [daftarBelanja, setDaftarBelanja] = useState<BelanjaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
-  // STATE BARU: Penampung nama kru dinamis
   const [daftarKru, setDaftarKru] = useState<any[]>([]);
   const [loadingKru, setLoadingKru] = useState<boolean>(true);
 
-  // KODE DINAMIS: Ambil data kru Kedai yang aktif dari API
   useEffect(() => {
     const fetchKru = async () => {
       try {
@@ -144,29 +142,23 @@ export default function PengeluaranKasSaaS() {
 
     setIsSubmitting(true);
 
-    // KITA SESUAIKAN DENGAN STRUKTUR API MULTIPLE INPUT
-    // Ubah format data agar selaras dengan API Pengeluaran Kedai 
-    const payloadDaftarBelanja = daftarBelanja.map(item => ({
-      kategori: metaData.kategori,
-      keterangan: `${item.namaItem} (${item.kuantiti} ${item.satuan})`,
-      nominal: item.nominalAsli
-    }));
-
     try {
+      // FIX BUG: Ubah nama kunci payload agar selaras 100% dengan kebutuhan API
       const response = await fetch('/api/pengeluaran', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tanggal: metaData.tanggal,
-          namaKru: metaData.penginput, // Sesuaikan dengan key di backend API
-          daftarPengeluaran: payloadDaftarBelanja // Gunakan payload keranjang
+          penginput: metaData.penginput,  // Wajib bernama 'penginput'
+          kategori: metaData.kategori,    // Wajib ada 'kategori'
+          daftarBelanja: daftarBelanja    // Wajib bernama 'daftarBelanja' & Array Utuh
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert(`✅ Pencatatan berhasil dikunci!`);
+        alert(`✅ Pencatatan berhasil dikunci ke sistem!`);
         setDaftarBelanja([]); 
       } else {
         alert(`❌ Gagal menyimpan: ${data.error}`);
@@ -182,57 +174,59 @@ export default function PengeluaranKasSaaS() {
   const totalPengeluaranNota = daftarBelanja.reduce((sum, item) => sum + item.nominalAsli, 0);
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 selection:bg-blue-100 selection:text-blue-900 font-sans">
       
-      {/* Header */}
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-20 shadow-xs">
+      {/* HEADER ELEGAN */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-20 shadow-sm">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="p-2 bg-zinc-100 text-zinc-600 rounded-full hover:bg-zinc-200/80 transition-colors">
+          <Link href="/" className="p-2.5 bg-slate-100 text-slate-500 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors">
             <ChevronLeft size={20} />
           </Link>
-          <h1 className="text-sm font-bold tracking-wide text-zinc-800 uppercase flex items-center gap-1.5">
-            <Wallet size={16} className="text-rose-500" /> Log Pengeluaran Kas
+          <h1 className="text-sm font-black tracking-tight text-slate-800 uppercase flex items-center gap-2">
+            <Wallet size={16} className="text-blue-600" /> Log Belanja Kru
           </h1>
-          <div className="w-9 h-9"></div>
+          <div className="w-10 h-10"></div>
         </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 mt-5 space-y-5">
         
         {/* BLOK METADATA NOTA */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Tanggal Nota</label>
-              <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none" />
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Tanggal Nota</label>
+              <input type="date" value={metaData.tanggal} onChange={(e) => setMetaData({...metaData, tanggal: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Kru Penginput</label>
-              <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer" required>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Kru Penginput</label>
+              <select value={metaData.penginput} onChange={(e) => setMetaData({...metaData, penginput: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-pointer focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all" required>
                 <option value="">{loadingKru ? 'Memuat kru...' : '-- Pilih Kru --'}</option>
                 {daftarKru.map(k => <option key={k.id} value={k.nama}>{k.nama}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Alokasi Kategori Kas</label>
-            <select value={metaData.kategori} onChange={(e) => setMetaData({...metaData, kategori: e.target.value})} className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-800 outline-none cursor-pointer">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Alokasi Kategori Kas</label>
+            <select value={metaData.kategori} onChange={(e) => setMetaData({...metaData, kategori: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-pointer focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all">
               {daftarKategori.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
           </div>
         </div>
 
         {/* INPUT MULTI-ITEM BELANJA PINTAR */}
-        <form onSubmit={handleTambahItem} className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs space-y-4 relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Tambah Item Belanjaan</span>
+        <form onSubmit={handleTambahItem} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+            <Plus size={14} className="text-blue-500" /> Tambah Item Belanjaan
+          </span>
           
           <div className="space-y-3">
             {/* DROPDOWN MASTER BARANG */}
             <select 
               value={inputItem.idItem} 
               onChange={handlePilihItem} 
-              className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold text-zinc-800 outline-none focus:bg-white cursor-pointer" 
+              className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-400 focus:bg-white cursor-pointer transition-all" 
               required
             >
               <option value="">-- Pilih Barang yang Dibeli --</option>
@@ -246,45 +240,45 @@ export default function PengeluaranKasSaaS() {
                 placeholder="Ketik nama barang manual..." 
                 value={inputItem.namaManual} 
                 onChange={(e) => setInputItem({...inputItem, namaManual: e.target.value})} 
-                className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white border-l-4 border-l-rose-400" 
+                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white border-l-4 border-l-blue-400 transition-all" 
                 required 
               />
             )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <input type="number" placeholder="Qty" step="any" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
-            <select value={inputItem.satuan} onChange={(e) => setInputItem({...inputItem, satuan: e.target.value})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-700 outline-none cursor-pointer">
+            <input type="number" placeholder="Qty" step="any" value={inputItem.kuantiti} onChange={(e) => setInputItem({...inputItem, kuantiti: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-blue-400 focus:bg-white transition-all" required />
+            <select value={inputItem.satuan} onChange={(e) => setInputItem({...inputItem, satuan: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer focus:border-blue-400 transition-all">
               {daftarSatuan.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input type="text" inputMode="numeric" placeholder="Harga Satuan" value={inputItem.hargaSatuan} onChange={(e) => setInputItem({...inputItem, hargaSatuan: formatRupiah(e.target.value)})} className="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold outline-none focus:bg-white" required />
+            <input type="text" inputMode="numeric" placeholder="Harga Satuan" value={inputItem.hargaSatuan} onChange={(e) => setInputItem({...inputItem, hargaSatuan: formatRupiah(e.target.value)})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-blue-400 focus:bg-white transition-all" required />
           </div>
 
-          <button type="submit" className="w-full py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-zinc-800 transition-colors">
-            <Plus size={14} strokeWidth={2.5} /> Masukkan Ke Daftar Nota
+          <button type="submit" className="w-full py-3.5 bg-slate-100 text-blue-600 border border-blue-200 text-xs font-black tracking-wide uppercase rounded-xl flex items-center justify-center gap-1.5 hover:bg-blue-50 transition-colors active:scale-95">
+            <Plus size={16} strokeWidth={3} /> Masukkan Ke Daftar
           </button>
         </form>
 
         {/* DAFTAR KERANJANG NOTA */}
         {daftarBelanja.length > 0 && (
-          <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 shadow-md text-white space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1"><ShoppingCart size={12} /> Daftar Item Nota</span>
-              <span className="text-xs font-black text-rose-400">Rp {totalPengeluaranNota.toLocaleString('id-ID')}</span>
+          <div className="bg-slate-900 p-5 rounded-2xl shadow-xl text-white space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><ShoppingCart size={14} /> Ringkasan Nota</span>
+              <span className="text-sm font-black text-blue-400">Rp {totalPengeluaranNota.toLocaleString('id-ID')}</span>
             </div>
 
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {daftarBelanja.map((item, idx) => (
-                <div key={idx} className="bg-zinc-800/90 p-3 rounded-xl border border-zinc-700/60 text-xs flex justify-between items-center">
+                <div key={idx} className="bg-slate-800 p-3.5 rounded-xl border border-slate-700 text-xs flex justify-between items-center">
                   <div>
                     <h4 className="font-bold text-white">{item.namaItem}</h4>
-                    <p className="text-[10px] text-zinc-400 mt-1 font-medium">
+                    <p className="text-[10px] text-slate-400 mt-1 font-medium">
                       {item.kuantiti} {item.satuan} × Rp {item.hargaSatuanDisplay}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-zinc-200">Rp {item.nominalDisplay}</span>
-                    <button type="button" onClick={() => hapusItem(idx)} className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors">
+                    <span className="font-bold text-slate-200">Rp {item.nominalDisplay}</span>
+                    <button type="button" onClick={() => hapusItem(idx)} className="p-2 text-slate-500 hover:text-rose-400 bg-slate-900/50 rounded-lg transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -292,8 +286,8 @@ export default function PengeluaranKasSaaS() {
               ))}
             </div>
 
-            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
-              <CheckCircle2 size={14} /> {isSubmitting ? 'Membukukan ke Sheets...' : 'KUNCI & SIMPAN SEMUA PENGELUARAN'}
+            <button type="button" onClick={handleSimpanSemua} disabled={isSubmitting} className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white font-black tracking-widest uppercase text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+              <CheckCircle2 size={16} /> {isSubmitting ? 'Menyinkronkan Data...' : 'Kunci & Simpan Nota'}
             </button>
           </div>
         )}
