@@ -41,9 +41,10 @@ export default function DashboardUtama() {
     return new Intl.NumberFormat('id-ID').format(num);
   };
 
-  // Helper untuk Grafik: Menyingkat angka agar tidak overlap (Contoh: 1.5M, 500K)
-  const formatShortIDR = (val: number) => {
-    if (!val || val === 0) return '';
+  // 🔥 FIX TYPESCRIPT: Terima 'any' agar lolos dari validasi ketat Recharts LabelList
+  const formatShortIDR = (value: any) => {
+    const val = Number(value);
+    if (isNaN(val) || val === 0) return '';
     if (val >= 1000000) return (val / 1000000).toFixed(1).replace('.0', '') + 'M';
     if (val >= 1000) return (val / 1000).toFixed(0) + 'K';
     return val.toString();
@@ -168,7 +169,7 @@ export default function DashboardUtama() {
               </Link>
             </div>
 
-            {/* 🔥 ROW 4: GRAFIK TREND OMSET 7 HARI (FLEX-1 UNTUK DESKTOP VIEW) */}
+            {/* ROW 4: GRAFIK TREND OMSET 7 HARI */}
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-xs flex flex-col flex-1 min-h-[260px]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-1.5">
@@ -192,7 +193,6 @@ export default function DashboardUtama() {
                         itemStyle={{ fontSize: '12px', fontWeight: '900', color: '#18181b' }}
                       />
                       <Area type="monotone" dataKey="omset" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorOmset)">
-                        {/* 🌟 LABEL ANGKA DI ATAS GARIS GRAFIK */}
                         <LabelList 
                           dataKey="omset" 
                           position="top" 
@@ -216,7 +216,7 @@ export default function DashboardUtama() {
           {/* ================= KOLOM KANAN: GUDANG & LOGISTIK ================= */}
           <div className="flex flex-col gap-4 sm:gap-6 h-full">
             
-            {/* 🔥 CARD ASET GUDANG (LINK KE RIWAYAT STOK) */}
+            {/* 🔥 CARD ASET GUDANG (LINK KE /stok/aset-gudang) */}
             <Link href="/aset-gudang" className="bg-white p-5 rounded-2xl shadow-xs border border-zinc-200/80 relative overflow-hidden shrink-0 group min-h-[110px] flex flex-col justify-center cursor-pointer hover:border-indigo-400 transition-all">
                <div className="absolute top-0 right-0 p-4 opacity-5 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
                  <Boxes size={80} className="text-indigo-900" />
@@ -299,7 +299,7 @@ export default function DashboardUtama() {
         </div>
       </div>
 
-      {/* ================= FLOATING BOTTOM NAV ================= */}
+      {/* ================= FLOATING BOTTOM NAV (LINK DIPERBAIKI) ================= */}
       <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-[92%] sm:w-[90%] max-w-md z-40">
         <div className="bg-white/95 backdrop-blur-lg border border-zinc-200/80 rounded-full shadow-xl shadow-zinc-200/50 p-1.5 sm:p-2 px-5 sm:px-6 flex justify-between items-center">
           <Link href="/absen" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-800 p-1.5 sm:p-2 transition-colors">
@@ -319,6 +319,7 @@ export default function DashboardUtama() {
             <Box size={18} />
             <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Stok</span>
           </Link>
+          {/* 🔥 FIX LINK KE /report */}
           <Link href="/report" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-800 p-1.5 sm:p-2 transition-colors">
             <ClipboardList size={18} />
             <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Laporan</span>
