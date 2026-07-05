@@ -319,7 +319,7 @@ export default function DashboardUtama() {
             <Box size={18} />
             <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Stok</span>
           </Link>
-          <Link href="/laporan" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-800 p-1.5 sm:p-2 transition-colors">
+          <Link href="/report" className="flex flex-col items-center gap-1 text-zinc-400 hover:text-zinc-800 p-1.5 sm:p-2 transition-colors">
             <ClipboardList size={18} />
             <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Laporan</span>
           </Link>
