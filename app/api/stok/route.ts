@@ -1,24 +1,13 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { 
+  getAuthSheets, 
+  parseRupiah, 
+  parseQty 
+} from '@/lib/google-sheets';
 
 export async function GET(request: Request) {
   try {
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
-    }
-
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
     
     // Baca Master Product (A sampai E karena ada Batas Minimum di kolom E)
     const resMaster = await sheets.spreadsheets.values.get({
@@ -29,7 +18,7 @@ export async function GET(request: Request) {
     const masterRows = resMaster.data.values || [];
 
     const daftarProduk = masterRows.slice(1).map(row => {
-      if (!row[0]) return null;
+      if (!row || !row[0]) return null;
       return {
         id: row[0].toString().trim(),
         nama: row[1] || '',
@@ -51,26 +40,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { type, tanggal, penginput, keterangan, lokasiTujuan, daftarStok } = body;
 
+    // Input validation
+    if (!tanggal || typeof tanggal !== 'string' || !tanggal.includes('-')) {
+      return NextResponse.json({ error: 'Tanggal wajib diisi dengan format YYYY-MM-DD.' }, { status: 400 });
+    }
     if (!daftarStok || !Array.isArray(daftarStok) || daftarStok.length === 0) {
       return NextResponse.json({ error: 'Keranjang stok kosong.' }, { status: 400 });
     }
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial server belum lengkap.' }, { status: 500 });
-    }
-
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
     
     // Format Tanggal Web ke Format Indonesia DD/MM/YYYY
     const [year, month, day] = tanggal.split('-');
@@ -86,10 +64,10 @@ export async function POST(request: Request) {
         formatTanggalID, 
         item.idProduk, 
         item.namaBarang, 
-        item.kuantiti, 
-        item.hargaBeliSatuan, 
-        item.totalBelanja, 
-        penginput
+        parseQty(item.kuantiti), 
+        parseRupiah(item.hargaBeliSatuan), 
+        parseRupiah(item.totalBelanja), 
+        penginput || ''
       ]);
 
     } else if (type === 'out') {
@@ -103,22 +81,12 @@ export async function POST(request: Request) {
       
       const kalkulasiHPP: Record<string, { totalQtyIn: number; totalCostIn: number }> = {};
       (resStokIn.data.values || []).slice(1).forEach(row => {
+        if (!row || row.length < 2) return;
         const idStr = row[1] ? row[1].toString().trim() : '';
-        if (!idStr) return;
-        
-        // Skip baris header jika tidak sengaja terbaca string
-        if (idStr.toLowerCase() === 'id produk') return;
+        if (!idStr || idStr.toLowerCase() === 'id produk') return;
 
-        // Pembersihan format desimal akuntansi
-        const cleanNumber = (val: any) => {
-          if (!val) return 0;
-          let str = val.toString().trim();
-          if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
-          return parseInt(str.replace(/\D/g, ''), 10) || 0;
-        };
-
-        const qtyIn = parseFloat(row[3] ? row[3].toString().replace(',', '.') : '0') || 0;
-        const totalCost = cleanNumber(row[5]);
+        const qtyIn = parseQty(row[3]);
+        const totalCost = parseRupiah(row[5]);
 
         if (!kalkulasiHPP[idStr]) kalkulasiHPP[idStr] = { totalQtyIn: 0, totalCostIn: 0 };
         kalkulasiHPP[idStr].totalQtyIn += qtyIn;
@@ -140,18 +108,18 @@ export async function POST(request: Request) {
         const dataIn = kalkulasiHPP[id] || { totalQtyIn: 0, totalCostIn: 0 };
         
         const hargaRataRata = dataIn.totalQtyIn > 0 ? Math.round(dataIn.totalCostIn / dataIn.totalQtyIn) : 0;
-        const totalModalTerpakai = Math.round(hargaRataRata * item.kuantiti);
+        const totalModalTerpakai = Math.round(hargaRataRata * parseQty(item.kuantiti));
 
         return [
           formatTanggalID,      // Row A
           item.idProduk,        // Row B
           item.namaBarang,      // Row C
-          item.kuantiti,        // Row D
-          keterangan,           // Row E
-          penginput,            // Row F
+          parseQty(item.kuantiti), // Row D
+          keterangan || '',     // Row E
+          penginput || '',      // Row F
           hargaRataRata,        // Row G
           totalModalTerpakai,   // Row H
-          lokasiTujuan          // Row I
+          lokasiTujuan || ''    // Row I
         ];
       });
 

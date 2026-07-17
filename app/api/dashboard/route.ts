@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { 
+  getAuthSheets, 
+  normalisasiTanggal, 
+  parseRupiah, 
+  parseQty 
+} from '@/lib/google-sheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,27 +13,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tanggalFilter = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
+    // Validate date format to prevent split crashes
+    if (!tanggalFilter || typeof tanggalFilter !== 'string' || !tanggalFilter.includes('-')) {
+      return NextResponse.json({ error: 'Format tanggal filter tidak valid (harus YYYY-MM-DD).' }, { status: 400 });
+    }
+
     // Pecah tanggal target untuk komparasi pintar (Contoh: "2026-07-04" -> 2026, 7, 4)
     const [targetYear, targetMonth, targetDay] = tanggalFilter.split('-');
     const targetMonthNum = parseInt(targetMonth, 10);
     const prefixTanggalWeb = `${targetYear}-${targetMonth}`; // Hasil: "2026-07"
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
-    }
-
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
 
     // FIX: Mengubah pencarian nama tab kru dari "Kru" menjadi "Master_Kru" sesuai struktur Google Sheets
     const [resPenjualan, resPengeluaran, resKasbon, resStokIn, resStokOut, resKru] = await Promise.all([
@@ -40,60 +35,18 @@ export async function GET(request: Request) {
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Master_Kru!A:E' }).catch(() => ({ data: { values: [] } }))
     ]);
 
-    const parseRupiah = (val: any) => {
-      if (!val) return 0;
-      let str = val.toString().trim();
-      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
-      return parseInt(str.replace(/\D/g, ''), 10) || 0;
-    };
-    const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
-
-    // NORMALISASI TANGGAL (Anti-Error Format Google Sheets)
-    const normalisasiTanggal = (str: string) => {
-      if (!str) return '';
-      str = str.trim();
-
-      if (/^\d+$/.test(str)) {
-        const serial = parseInt(str, 10);
-        const jsDate = new Date((serial - 25569) * 24 * 3600 * 1000);
-        const tgl = String(jsDate.getUTCDate()).padStart(2, '0');
-        const bln = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-        const thn = jsDate.getUTCFullYear();
-        return `${thn}-${bln}-${tgl}`;
-      }
-
-      const pemisah = str.includes('/') ? '/' : (str.includes('-') ? '-' : '');
-      if (!pemisah) return str;
-      const bagian = str.split(pemisah);
-      if (bagian.length !== 3) return str;
-
-      if (bagian[0].length === 4) {
-        return `${bagian[0]}-${bagian[1].padStart(2, '0')}-${bagian[2].padStart(2, '0')}`;
-      }
-
-      if (bagian[2].length === 4 || bagian[2].length === 2) {
-        let thn = bagian[2];
-        if (thn.length === 2) thn = '20' + thn; 
-
-        const p1 = parseInt(bagian[0], 10);
-        const p2 = parseInt(bagian[1], 10);
-        let blnNum = p2; let tglNum = p1;
-
-        if (p1 === targetMonthNum && p2 !== targetMonthNum) { blnNum = p1; tglNum = p2; } 
-        else if (p1 > 12) { tglNum = p1; blnNum = p2; } 
-        else if (p2 > 12) { blnNum = p1; tglNum = p2; }
-
-        return `${thn}-${String(blnNum).padStart(2, '0')}-${String(tglNum).padStart(2, '0')}`;
-      }
-      return str;
-    };
-
     // 🎯 IDENTIFIKASI KRU GEROBAK DARI TAB 'Master_Kru'
     const gerobakKru = new Set<string>();
     (resKru.data.values || []).slice(1).forEach(row => {
+      if (!row || row.length === 0) return;
       const namaKolomA = (row[0] || '').toString().toLowerCase().trim();
       const namaKolomB = (row[1] || '').toString().toLowerCase().trim();
-      const isGerobak = row.some(cell => cell.toString().toLowerCase().trim() === 'gerobak');
+      
+      // Safe cell verification to prevent undefined.toString() crash
+      const isGerobak = row.some(cell => {
+        if (cell === null || cell === undefined) return false;
+        return cell.toString().toLowerCase().trim() === 'gerobak';
+      });
       
       if (isGerobak) {
         if (namaKolomA) gerobakKru.add(namaKolomA);
@@ -105,8 +58,14 @@ export async function GET(request: Request) {
     const trendOmsetMap: Record<string, { hari: string, omset: number }> = {};
     const trendLabelsKeys: string[] = [];
     
+    const yearNum = parseInt(targetYear, 10);
+    const dayNum = parseInt(targetDay, 10);
+
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(parseInt(targetYear), targetMonthNum - 1, parseInt(targetDay));
+      // Safe date validation check
+      if (isNaN(yearNum) || isNaN(targetMonthNum) || isNaN(dayNum)) break;
+
+      const d = new Date(yearNum, targetMonthNum - 1, dayNum);
       d.setDate(d.getDate() - i);
       
       const y = d.getFullYear();
@@ -131,6 +90,7 @@ export async function GET(request: Request) {
 
     // 1. PROSES PENJUALAN (HANYA KEDAI PUSAT)
     (resPenjualan.data.values || []).slice(1).forEach(row => {
+      if (!row || row.length === 0) return;
       const namaKru = (row[1] || '').toString().toLowerCase().trim();
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       
@@ -158,6 +118,7 @@ export async function GET(request: Request) {
 
     // 2. PROSES PENGELUARAN (HANYA KEDAI PUSAT)
     (resPengeluaran.data.values || []).slice(1).forEach(row => {
+      if (!row || row.length === 0) return;
       const namaKru = (row[1] || '').toString().toLowerCase().trim();
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       
@@ -175,8 +136,9 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. PROSES KASBON (HANYA KEDAI PUSAT - SEKARANG FIX 100% AMAN VIA Master_Kru)
+    // 3. PROSES KASBON (HANYA KEDAI PUSAT)
     (resKasbon.data.values || []).slice(1).forEach(row => {
+      if (!row || row.length === 0) return;
       let rowTanggal = row[0] ? row[0].toString().trim() : '';
       const namaKasbon = row[1] ? row[1].toString().toLowerCase().trim() : '';
       const statusKasbon = row[4] ? row[4].toString().toLowerCase().trim() : ''; 
@@ -203,6 +165,7 @@ export async function GET(request: Request) {
     const rawStokOut = resStokOut.data.values || [];
     
     rawStokIn.slice(1).forEach(row => {
+      if (!row || row.length < 2) return;
       const idStr = row[1] ? row[1].toString().trim() : '';
       if (!idStr || idStr.toLowerCase() === 'id produk') return; 
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
@@ -211,6 +174,7 @@ export async function GET(request: Request) {
     });
 
     rawStokOut.slice(1).forEach(row => {
+      if (!row || row.length < 2) return;
       const idStr = row[1] ? row[1].toString().trim() : '';
       if (!idStr || idStr.toLowerCase() === 'id produk') return; 
       if (!kalkulasiGudang[idStr]) kalkulasiGudang[idStr] = { totalQtyIn: 0, totalCostIn: 0, totalQtyOut: 0 };
@@ -230,10 +194,15 @@ export async function GET(request: Request) {
     totalNilaiAsetGudangAktif = Math.round(totalNilaiAsetGudangAktif);
     const saldoLaciKasir = Math.round(akumulasiTunaiBulanan - akumulasiPengeluaranBulanan - akumulasiKasbonBulanan);
     
-    const historyStokInFiltered = rawStokIn.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
-    const historyStokOutFiltered = rawStokOut.slice(1).filter(r => r[1] && r[1].toLowerCase() !== 'id produk');
+    const historyStokInFiltered = rawStokIn.slice(1).filter(r => r && r[1] && r[1].toLowerCase() !== 'id produk');
+    const historyStokOutFiltered = rawStokOut.slice(1).filter(r => r && r[1] && r[1].toLowerCase() !== 'id produk');
 
-    const trendOmsetFinal = trendLabelsKeys.map(key => trendOmsetMap[key]);
+    const trendOmsetFinal = trendLabelsKeys.map(key => trendOmsetMap[key] || { hari: '-', omset: 0 });
+
+    const getNamaBulan = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    };
 
     return NextResponse.json({
       omset: omsetHarian,
@@ -243,10 +212,12 @@ export async function GET(request: Request) {
       nilaiAsetGudang: totalNilaiAsetGudangAktif,
       historyStokIn: historyStokInFiltered.slice(-5).reverse(),   
       historyStokOut: historyStokOutFiltered.slice(-5).reverse(),
-      trendOmset: trendOmsetFinal 
+      trendOmset: trendOmsetFinal,
+      namaBulan: getNamaBulan(tanggalFilter)
     });
 
   } catch (error: any) {
+    console.error('API Dashboard GET Error:', error);
     return NextResponse.json({ error: 'Gagal memuat ringkasan.' }, { status: 500 });
   }
 }

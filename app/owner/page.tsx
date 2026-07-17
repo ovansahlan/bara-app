@@ -27,22 +27,34 @@ export default function DashboardOwner() {
   const [bulanPilih, setBulanPilih] = useState<string>(new Date().toISOString().split('T')[0]);
   const [viewCabang, setViewCabang] = useState<'gabungan' | 'kedai' | 'gerobak'>('gabungan');
 
-  // Kunci PIN Akses Langsung
-  const TARGET_PIN = '8888';
-
-  const handleKeyPress = (num: string) => {
+  const handleKeyPress = async (num: string) => {
     setErrorAuth('');
     if (pinInput.length < 4) {
       const newPin = pinInput + num;
       setPinInput(newPin);
       
-      if (newPin === TARGET_PIN) {
-        setIsAuthorized(true);
-      } else if (newPin.length === 4) {
-        setTimeout(() => {
-          setErrorAuth('PIN Salah! Akses Ditolak.');
-          setPinInput('');
-        }, 150);
+      if (newPin.length === 4) {
+        try {
+          const res = await fetch('/api/owner/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: newPin }),
+          });
+          const result = await res.json();
+          if (res.ok && result.success) {
+            setIsAuthorized(true);
+          } else {
+            setTimeout(() => {
+              setErrorAuth(result.error || 'PIN Salah! Akses Ditolak.');
+              setPinInput('');
+            }, 150);
+          }
+        } catch (error) {
+          setTimeout(() => {
+            setErrorAuth('Terjadi kesalahan jaringan.');
+            setPinInput('');
+          }, 150);
+        }
       }
     }
   };

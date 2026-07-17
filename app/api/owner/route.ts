@@ -1,80 +1,43 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { 
+  getAuthSheets, 
+  normalisasiTanggal, 
+  parseRupiah, 
+  parseQty, 
+  verifyOwnerSession 
+} from '@/lib/google-sheets';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // 1. Enforce security check: verify owner session cookie
+    if (!verifyOwnerSession()) {
+      return NextResponse.json({ error: 'Unauthorized. Akses ditolak.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const tanggalFilter = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
-    const [targetYear, targetMonth] = tanggalFilter.split('-');
-    const targetMonthNum = parseInt(targetMonth, 10);
-    const prefixTanggalWeb = `${targetYear}-${targetMonth}`; 
-
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
+    // Validate date format to prevent crash on split
+    if (!tanggalFilter || typeof tanggalFilter !== 'string' || !tanggalFilter.includes('-')) {
+      return NextResponse.json({ error: 'Format tanggal filter tidak valid (harus YYYY-MM-DD).' }, { status: 400 });
     }
 
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    const [targetYear, targetMonth] = tanggalFilter.split('-');
+    const prefixTanggalWeb = `${targetYear}-${targetMonth}`; 
 
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
 
     const [resPenjualan, resPenjualanGrb, resPengeluaranKedai, resPengeluaranGrb, resBelanjaOwner, resStokIn, resStokOut] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Penjualan_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran!A:H' }).catch(() => ({ data: { values: [] } })), 
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Pengeluaran_Gerobak!A:H' }).catch(() => ({ data: { values: [] } })), 
-      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:E' }).catch(() => ({ data: { values: [] } })), // Diperbarui menjadi A:E
+      sheets.spreadsheets.values.get({ spreadsheetId, range: 'Belanja_Owner!A:E' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Masuk!A:G' }).catch(() => ({ data: { values: [] } })),
       sheets.spreadsheets.values.get({ spreadsheetId, range: 'Stok_Keluar!A:I' }).catch(() => ({ data: { values: [] } }))
     ]);
-
-    const parseRupiah = (val: any) => {
-      if (!val) return 0;
-      let str = val.toString().trim();
-      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3);
-      return parseInt(str.replace(/\D/g, ''), 10) || 0;
-    };
-    const parseQty = (val: any) => parseFloat(val ? val.toString().replace(',', '.') : '0') || 0;
-
-    const normalisasiTanggal = (str: string) => {
-      if (!str) return '';
-      str = str.trim();
-      if (/^\d+$/.test(str)) {
-        const serial = parseInt(str, 10);
-        const jsDate = new Date((serial - 25569) * 24 * 3600 * 1000);
-        const tgl = String(jsDate.getUTCDate()).padStart(2, '0');
-        const bln = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-        return `${jsDate.getUTCFullYear()}-${bln}-${tgl}`;
-      }
-      const pemisah = str.includes('/') ? '/' : (str.includes('-') ? '-' : '');
-      if (!pemisah) return str;
-      const bagian = str.split(pemisah);
-      if (bagian.length !== 3) return str;
-      if (bagian[0].length === 4) return `${bagian[0]}-${bagian[1].padStart(2, '0')}-${bagian[2].padStart(2, '0')}`;
-      if (bagian[2].length === 4 || bagian[2].length === 2) {
-        let thn = bagian[2];
-        if (thn.length === 2) thn = '20' + thn; 
-        const p1 = parseInt(bagian[0], 10);
-        const p2 = parseInt(bagian[1], 10);
-        let blnNum = p2, tglNum = p1;
-        if (p1 === targetMonthNum && p2 !== targetMonthNum) { blnNum = p1; tglNum = p2; }
-        else if (p1 > 12) { tglNum = p1; blnNum = p2; }
-        else if (p2 > 12) { blnNum = p1; tglNum = p2; }
-        return `${thn}-${String(blnNum).padStart(2, '0')}-${String(tglNum).padStart(2, '0')}`;
-      }
-      return str;
-    };
 
     let omsetKedai = 0, pengeluaranKruKedai = 0, belanjaOwnerKedai = 0, HPPKedai = 0;
     let omsetGerobak = 0, pengeluaranKruGerobak = 0, belanjaOwnerGerobak = 0, HPPGerobak = 0;
@@ -140,17 +103,16 @@ export async function GET(request: Request) {
     });
 
     // ==========================================
-    // 4. 🔥 PARSING BELANJA OWNER (SUDAH FIX 100%)
+    // 4. PARSING BELANJA OWNER
     // ==========================================
-    // Urutan: Tanggal(0) | Kategori(1) | Keterangan(2) | Nominal(3) | Peruntukan(4)
     (resBelanjaOwner.data.values || []).slice(1).forEach(row => {
       let tgl = row[0] ? normalisasiTanggal(row[0]) : '';
       if (!tgl) return;
       
       const kategori = row[1] || 'Owner';
       const barang = row[2] || 'Aset';
-      const nominal = parseRupiah(row[3]); // 🔥 SEKARANG MEMBACA INDEKS KE-3
-      const peruntukan = (row[4] || '').toString().toLowerCase().trim(); // 🔥 INDEKS KE-4
+      const nominal = parseRupiah(row[3]); 
+      const peruntukan = (row[4] || '').toString().toLowerCase().trim(); 
 
       if (tgl.startsWith(prefixTanggalWeb)) {
         if (peruntukan === 'kedai') belanjaOwnerKedai += nominal;
@@ -162,8 +124,8 @@ export async function GET(request: Request) {
         peruntukan: peruntukan === 'gerobak' ? 'Gerobak' : 'Kedai',
         kategori: kategori,
         barang: barang,
-        qty: 1,      // Diset 1 karena tabel tidak punya kolom kuantitas
-        satuan: '-', // Diset '-' karena tabel tidak punya kolom satuan
+        qty: 1,      
+        satuan: '-', 
         nominal: nominal
       });
     });
@@ -188,7 +150,7 @@ export async function GET(request: Request) {
       const idStr = row[1] ? row[1].toString().trim() : '';
       const namaBarang = row[2] || 'Bahan';
       const qtyOut = parseQty(row[3]);
-      const tujuan = (row[8] || '').toString().toLowerCase().trim(); // Indeks ke 8 (Kolom I)
+      const tujuan = (row[8] || '').toString().toLowerCase().trim(); 
 
       if (!tgl || !idStr || idStr.toLowerCase() === 'id produk' || !tgl.startsWith(prefixTanggalWeb)) return;
 
