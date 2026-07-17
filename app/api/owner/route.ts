@@ -177,6 +177,10 @@ export async function GET(request: Request) {
     const labaBersihKedai = Math.round(omsetKedai - pengeluaranKruKedai - belanjaOwnerKedai - HPPKedai);
     const labaBersihGerobak = Math.round(omsetGerobak - pengeluaranKruGerobak - belanjaOwnerGerobak - HPPGerobak);
 
+    // Sort chronologically by date to interleave mixed sources correctly
+    listBelanjaOwner.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+    listPengeluaranKru.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+
     return NextResponse.json({
       totalLabaGabungan: labaBersihKedai + labaBersihGerobak,
       kedai: { 

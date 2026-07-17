@@ -50,18 +50,15 @@ export async function POST(request: Request) {
 
     const { sheets, spreadsheetId } = getAuthSheets();
     
-    // Format Tanggal Web ke Format Indonesia DD/MM/YYYY
-    const [year, month, day] = tanggal.split('-');
-    const formatTanggalID = `${day}/${month}/${year}`;
-    
     let rangeTarget = '';
     let kumpulanBarisBaru: any[] = [];
 
     if (type === 'in') {
       rangeTarget = 'Stok_Masuk!A:G';
       // Format Stok_Masuk: Tanggal | ID Produk | Nama Barang | Qty Masuk | Harga Beli | Total Belanja | Penginput
+      // Menulis tanggal langsung dalam format YYYY-MM-DD agar dideteksi sebagai tipe data Tanggal di Google Sheets
       kumpulanBarisBaru = daftarStok.map((item: any) => [
-        formatTanggalID, 
+        tanggal, 
         item.idProduk, 
         item.namaBarang, 
         parseQty(item.kuantiti), 
@@ -111,7 +108,7 @@ export async function POST(request: Request) {
         const totalModalTerpakai = Math.round(hargaRataRata * parseQty(item.kuantiti));
 
         return [
-          formatTanggalID,      // Row A
+          tanggal,      // Row A
           item.idProduk,        // Row B
           item.namaBarang,      // Row C
           parseQty(item.kuantiti), // Row D

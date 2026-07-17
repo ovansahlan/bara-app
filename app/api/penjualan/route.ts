@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthSheets } from '@/lib/google-sheets';
+import { getAuthSheets, normalisasiTanggal } from '@/lib/google-sheets';
 
 export async function GET(request: Request) {
   try {
@@ -9,10 +9,6 @@ export async function GET(request: Request) {
     if (!tanggal || typeof tanggal !== 'string' || !tanggal.includes('-')) {
       return NextResponse.json({ error: 'Tanggal diperlukan dengan format YYYY-MM-DD' }, { status: 400 });
     }
-
-    // FORMATTER: Ubah "YYYY-MM-DD" menjadi "DD/MM/YYYY"
-    const [year, month, day] = tanggal.split('-');
-    const formatTanggalID = `${day}/${month}/${year}`;
 
     const { sheets, spreadsheetId } = getAuthSheets();
     
@@ -36,8 +32,8 @@ export async function GET(request: Request) {
       const rowTanggal = row[0]; // Kolom A
       const rowShift = row[2];   // Kolom C
 
-      // Cek apakah tanggal sama dengan format DD/MM/YYYY atau YYYY-MM-DD (histori lama)
-      if ((rowTanggal === formatTanggalID || rowTanggal === tanggal) && rowShift === 'Shift 1 (Pagi)') {
+      // Gunakan normalisasiTanggal agar kebal terhadap variasi format penulisan tanggal di Google Sheets
+      if (normalisasiTanggal(rowTanggal) === tanggal && rowShift === 'Shift 1 (Pagi)') {
         rincianPagi.tunai += parseInt(row[3] || '0', 10) || 0;
         rincianPagi.qris += parseInt(row[4] || '0', 10) || 0;
         rincianPagi.edcTransfer += parseInt(row[5] || '0', 10) || 0;
@@ -67,15 +63,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nama kasir dan shift wajib diisi.' }, { status: 400 });
     }
 
-    // FORMATTER: Ubah "YYYY-MM-DD" menjadi "DD/MM/YYYY" agar diterima Google Sheets
-    const [year, month, day] = tanggal.split('-');
-    const formatTanggalID = `${day}/${month}/${year}`;
-
     const { sheets, spreadsheetId } = getAuthSheets();
 
-    // Gunakan formatTanggalID yang sudah diubah formatnya
+    // Tulis tanggal dalam format YYYY-MM-DD langsung ke Google Sheets (tanpa single quote)
+    // agar dideteksi sebagai Tipe Data Tanggal (Date) murni oleh Google Sheets.
     const barisBaru = [
-      formatTanggalID, 
+      tanggal, 
       namaKasir, 
       shift, 
       parseInt(tunai, 10) || 0, 

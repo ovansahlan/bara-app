@@ -1,34 +1,29 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getAuthSheets } from '@/lib/google-sheets';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { tanggal, namaKru, shift, tunai, qris, edc, grab, total } = body;
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap.' }, { status: 500 });
+    if (!tanggal || typeof tanggal !== 'string' || !tanggal.includes('-')) {
+      return NextResponse.json({ error: 'Tanggal wajib diisi dengan format YYYY-MM-DD.' }, { status: 400 });
     }
 
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+    const { sheets, spreadsheetId } = getAuthSheets();
 
-    const sheets = google.sheets({ version: 'v4', auth });
-    
-    // Format Tanggal
-    const [year, month, day] = tanggal.split('-');
-    const formatTanggalID = `'${day}/${month}/${year}`;
-
-    // Susunan Baris: Tanggal | Nama Kru | Shift | Tunai | QRIS | EDC | Grab | Total (Kolom A-H)
-    const dataBaris = [formatTanggalID, namaKru, shift, tunai, qris, edc, grab, total];
+    // Tulis tanggal dalam format YYYY-MM-DD langsung tanpa prefix kutip (')
+    // agar Google Sheets mengenalinya sebagai Tipe Data Tanggal (Date) murni
+    const dataBaris = [
+      tanggal, 
+      namaKru, 
+      shift, 
+      parseInt(tunai, 10) || 0, 
+      parseInt(qris, 10) || 0, 
+      parseInt(edc, 10) || 0, 
+      parseInt(grab, 10) || 0, 
+      parseInt(total, 10) || 0
+    ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -41,6 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: 'Omset Gerobak berhasil disimpan!' });
 
   } catch (error: any) {
+    console.error('API Gerobak Penjualan POST Error:', error);
     return NextResponse.json({ error: 'Gagal mencatat omset gerobak.' }, { status: 500 });
   }
 }

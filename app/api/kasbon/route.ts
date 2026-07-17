@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getAuthSheets, normalisasiTanggal, parseRupiah } from '@/lib/google-sheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,38 +9,20 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tanggal = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
 
-    const [year, month] = tanggal.split('-');
-    const prefixBulan = `/${month}/${year}`; // Filter pencocokan format tanggal lokal DD/MM/YYYY
-
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap' }, { status: 500 });
+    if (!tanggal || typeof tanggal !== 'string' || !tanggal.includes('-')) {
+      return NextResponse.json({ error: 'Format tanggal filter tidak valid (harus YYYY-MM-DD).' }, { status: 400 });
     }
 
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    const [year, month] = tanggal.split('-');
+    const prefixTanggalWeb = `${year}-${month}`; // Filter pencocokan YYYY-MM
 
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
 
     // Tarik data dari tabsheet Kasbon
     const resKasbon = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Kasbon!A:E',
     });
-
-    const parseRupiah = (val: any) => {
-      if (!val) return 0;
-      let str = val.toString().trim();
-      if (/(,|\.)\d{2}$/.test(str)) str = str.slice(0, -3); // Buang desimal jika ada
-      return parseInt(str.replace(/\D/g, ''), 10) || 0;
-    };
 
     const rekapKasbonKru: Record<string, number> = {};
     const rows = resKasbon.data.values || [];
@@ -52,8 +34,9 @@ export async function GET(request: Request) {
 
       if (!nama || nama.toLowerCase() === 'nama kru') return;
 
-      // Filter: Hanya hitung jika baris kasbon berada pada Bulan & Tahun yang sama
-      if (rowTanggal.endsWith(prefixBulan) || rowTanggal.includes(prefixBulan)) {
+      // Filter: Hanya hitung jika baris kasbon berada pada Bulan & Tahun yang sama (menggunakan normalisasiTanggal)
+      const normalizedDate = normalisasiTanggal(rowTanggal);
+      if (normalizedDate.startsWith(prefixTanggalWeb)) {
         if (!rekapKasbonKru[nama]) {
           rekapKasbonKru[nama] = 0;
         }
@@ -75,12 +58,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { tanggal, namaKru, nominal, keterangan } = body;
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-    if (!spreadsheetId || !clientEmail || !privateKey) {
-      return NextResponse.json({ error: 'Kredensial tidak lengkap.' }, { status: 500 });
+    if (!tanggal || typeof tanggal !== 'string' || !tanggal.includes('-')) {
+      return NextResponse.json({ error: 'Tanggal wajib diisi dengan format YYYY-MM-DD.' }, { status: 400 });
     }
 
     const cleanNumber = (val: any) => {
@@ -91,27 +70,15 @@ export async function POST(request: Request) {
 
     const nilaiKasbonBersih = cleanNumber(nominal);
 
-    const formattedKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: formattedKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
+    const { sheets, spreadsheetId } = getAuthSheets();
 
     const [year, month, day] = tanggal.split('-');
-    const formatTanggalAman = `'${day}/${month}/${year}`; // Proteksi tanda petik (') murni teks baku
-    const formatBulan = `${month}/${year}`; // Mengisi kolom Bulan otomatis secara berkala
+    const formatBulan = `${month}/${year}`; 
 
-    // PARSING URUTAN MATRIKS PERSIS SEPERTI STRUKTUR TABLE ANDA:
-    // Kolom A (0): Tanggal
-    // Kolom B (1): Nama Kru
-    // Kolom C (2): Nominal Kasbon (Rp)
-    // Kolom D (3): Keterangan
-    // Kolom E (4): Bulan
+    // Tulis tanggal dalam format YYYY-MM-DD langsung tanpa prefix kutip (')
+    // agar Google Sheets mengenalinya sebagai Tipe Data Tanggal (Date) murni
     const dataBaris = [
-      formatTanggalAman, 
+      tanggal, 
       namaKru, 
       nilaiKasbonBersih, 
       keterangan || 'Pinjaman Operasional', 
