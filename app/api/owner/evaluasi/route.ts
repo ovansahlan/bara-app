@@ -11,8 +11,9 @@ export async function POST(request: Request) {
     }
 
     const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const year = today.getFullYear();
+    const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const year = localDate.getFullYear();
     const bulanTahun = `${year}-${month}`;
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;

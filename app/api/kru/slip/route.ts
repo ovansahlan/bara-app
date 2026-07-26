@@ -12,10 +12,12 @@ export async function GET(request: Request) {
     if (!namaKru || !cabang) return NextResponse.json({ error: 'Parameter tidak lengkap.' }, { status: 400 });
 
     const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const year = today.getFullYear();
+    const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const year = localDate.getFullYear();
     const prefixTanggalID = `/${month}/${year}`; 
-    const prefixTanggalWeb = `${year}-${month}`; // Format YYYY-MM untuk pencarian di tab evaluasi
+    const prefixTanggalWeb = `${year}-${month}`; // Format YYYY-MM
+    const formatLokal2 = `-${month}-${year}`;
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -59,10 +61,16 @@ export async function GET(request: Request) {
     let uangOvertime = 0; 
     let catatanOwner = "Terima kasih atas kerja kerasmu bulan ini. Pertahankan terus kinerjamu!";
 
-    const evaluasiDitemukan = rowsEvaluasi.slice(1).find(row => {
+    // Ambil baris evaluasi TERBARU (reverse) & dukung berbagai variasi format tanggal Google Sheets
+    const evaluasiDitemukan = [...rowsEvaluasi.slice(1)].reverse().find(row => {
       const rowBulan = row[0] ? row[0].toString().trim() : '';
       const rowNama = row[1] ? row[1].toString().toLowerCase().trim() : '';
-      return rowBulan === prefixTanggalWeb && rowNama === namaKru;
+      const isNamaCocok = rowNama === namaKru;
+      const isBulanCocok = rowBulan.includes(prefixTanggalWeb) || 
+                           rowBulan.includes(prefixTanggalID) || 
+                           rowBulan.includes(formatLokal2) ||
+                           rowBulan.startsWith(prefixTanggalWeb);
+      return isNamaCocok && isBulanCocok;
     });
 
     if (evaluasiDitemukan) {
