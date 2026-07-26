@@ -44,10 +44,23 @@ export async function GET(request: Request) {
 
       if (nama === namaKru && bulanMulai && totalTenor > 0) {
         
-        // Pecah "2025-04" menjadi Angka Tahun (2025) dan Bulan (4)
-        const [startYearStr, startMonthStr] = bulanMulai.split('-');
-        const startYear = parseInt(startYearStr, 10);
-        const startMonth = parseInt(startMonthStr, 10);
+        // Pecah "2025-04" atau "04/2025" secara fleksibel
+        const pemisah = bulanMulai.includes('/') ? '/' : '-';
+        const parts = bulanMulai.split(pemisah);
+        let startYear = NaN;
+        let startMonth = NaN;
+
+        if (parts.length >= 2) {
+          if (parts[0].length === 4) {
+            startYear = parseInt(parts[0], 10);
+            startMonth = parseInt(parts[1], 10);
+          } else {
+            startMonth = parseInt(parts[0], 10);
+            startYear = parseInt(parts[1], 10);
+          }
+        }
+
+        if (isNaN(startYear) || isNaN(startMonth)) return;
 
         // ALGORITMA CERDAS: Hitung otomatis bulan ini adalah cicilan ke berapa
         const cicilanKe = ((currentYear - startYear) * 12) + (currentMonth - startMonth) + 1;

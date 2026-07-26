@@ -182,7 +182,7 @@ export default function SlipGajiKru() {
             <div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2 border-b border-emerald-100 pb-1">Penerimaan (Pendapatan)</h3>
               <div className="space-y-2 text-xs font-medium">
-                <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokop || slipData.gajiPokok)}</span></div>
+                <div className="flex justify-between"><span>Gaji Pokok Bulanan</span><span>{formatIDR(slipData.gajiPokok)}</span></div>
                 <div className="flex justify-between"><span>Bonus Target Omset</span><span>{formatIDR(slipData.bonusOmset)}</span></div>
                 <div className="flex justify-between"><span>Tunjangan Kinerja / Insentif</span><span>{formatIDR(slipData.tunjanganObjektif)}</span></div>
                 <div className="flex justify-between"><span>Upah Lembur (Overtime)</span><span className="text-amber-600 font-bold">+{formatIDR(slipData.uangOvertime)}</span></div>

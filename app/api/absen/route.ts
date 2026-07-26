@@ -13,16 +13,17 @@ export async function POST(request: Request) {
 
     // 1. Ambil Waktu Server Murni (WIB)
     const now = new Date();
-    const options: Intl.DateTimeFormatOptions = { 
-      timeZone: 'Asia/Jakarta', 
-      year: 'numeric', month: '2-digit', day: '2-digit', 
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false 
-    };
-    const formatter = new Intl.DateTimeFormat('en-CA', options);
-    const timeString = formatter.format(now).replace(', ', ' ');
-    const tanggalSekarang = timeString.split(' ')[0];
-    const waktuSekarang = timeString.split(' ')[1].replace(/:/g, '-');
+    const localDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const thn = localDate.getFullYear();
+    const bln = String(localDate.getMonth() + 1).padStart(2, '0');
+    const tgl = String(localDate.getDate()).padStart(2, '0');
+    const jam = String(localDate.getHours()).padStart(2, '0');
+    const min = String(localDate.getMinutes()).padStart(2, '0');
+    const sec = String(localDate.getSeconds()).padStart(2, '0');
+
+    const timeString = `${thn}-${bln}-${tgl} ${jam}:${min}:${sec}`;
+    const tanggalSekarang = `${thn}-${bln}-${tgl}`;
+    const waktuSekarang = `${jam}-${min}-${sec}`;
 
     // 2. Upload Foto ke Vercel Blob
     const cleanBase64 = fotoBase64.replace(/^data:image\/\w+;base64,/, "");

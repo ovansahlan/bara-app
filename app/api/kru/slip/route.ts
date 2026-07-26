@@ -122,7 +122,7 @@ export async function GET(request: Request) {
     let totalOmsetCabang = 0;
     (resOmset.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      if (tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) {
+      if (isSameMonthYear(tgl, currentYear, currentMonthNum)) {
         totalOmsetCabang += parseRupiah(row[7]);
       }
     });

@@ -54,6 +54,40 @@ export async function GET(request: Request) {
       }
     });
 
+    // Helper untuk kecocokan tanggal/bulan
+    const isSameMonthYear = (rowBulanStr: string, targetYear: number, targetMonth: number) => {
+      if (!rowBulanStr) return false;
+      const str = rowBulanStr.trim().toLowerCase();
+      const mStr = String(targetMonth).padStart(2, '0');
+      const mSingle = String(targetMonth);
+      const yStr = String(targetYear);
+      const yShort = String(targetYear).slice(-2);
+
+      if (str.includes(`${yStr}-${mStr}`) || str.includes(`${yStr}-${mSingle}`)) return true;
+      if (str.includes(`${mStr}/${yStr}`) || str.includes(`${mSingle}/${yStr}`)) return true;
+      if (str.includes(`${mStr}-${yStr}`) || str.includes(`${mSingle}-${yStr}`)) return true;
+      if (str.includes(`${yStr}/${mStr}`) || str.includes(`${yStr}/${mSingle}`)) return true;
+      if (str.includes(`${mStr}/${yShort}`) || str.includes(`${mSingle}/${yShort}`)) return true;
+
+      const monthNamesID = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'];
+      const monthNamesEN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const nameID = monthNamesID[targetMonth - 1];
+      const nameEN = monthNamesEN[targetMonth - 1];
+
+      if ((str.includes(nameID) || str.includes(nameEN)) && str.includes(yStr)) return true;
+
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        if (d.getFullYear() === targetYear && (d.getMonth() + 1) === targetMonth) return true;
+      }
+      return false;
+    };
+
+    const cleanNama = (str: string) => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const reqNamaClean = cleanNama(namaKru);
+    const currentYear = today.getFullYear();
+    const currentMonthNum = today.getMonth() + 1;
+
     // 2. Hitung Rapor Absensi Kru Terkait (Bulan Ini)
     let totalHadir = 0;
     let totalTelat = 0;
@@ -63,22 +97,28 @@ export async function GET(request: Request) {
 
     (resAbsen.data.values || []).slice(1).forEach(row => {
       const tgl = row[0] ? row[0].toString().trim() : '';
-      const nama = row[3] ? row[3].toString().toLowerCase().trim() : '';
-      const status = row[5] ? row[5].toString().toLowerCase().trim() : ''; // Hadir / Telat / Sakit / Izin / Alfa
+      const nama = row[1] ? row[1].toString() : ''; // FIX: Kolom B (Index 1) adalah Nama
+      const status = row[2] ? row[2].toString().toLowerCase().trim() : ''; // FIX: Kolom C (Index 2) adalah Shift/Status
 
-      if ((tgl.startsWith(prefixTanggalWeb) || tgl.endsWith(prefixTanggalID)) && nama === namaKru) {
-        if (status.includes('hadir') || status.includes('tepat')) {
+      const rNamaClean = cleanNama(nama);
+      const isNamaCocok = rNamaClean === reqNamaClean || 
+                           rNamaClean.includes(reqNamaClean) || 
+                           reqNamaClean.includes(rNamaClean);
+      const isBulanCocok = isSameMonthYear(tgl, currentYear, currentMonthNum);
+
+      if (isBulanCocok && isNamaCocok) {
+        if (status.includes('shift') || status.includes('full') || status.includes('hadir') || status.includes('tepat')) {
           totalHadir += 1;
         } else if (status.includes('telat') || status.includes('terlambat')) {
           totalHadir += 1;
           totalTelat += 1;
-          poinDisiplin -= 2; // Potong 2 poin jika telat
+          poinDisiplin -= 2;
         } else if (status.includes('sakit') || status.includes('izin')) {
           totalIzin += 1;
-          poinDisiplin -= 0.5; // Potong 0.5 poin untuk izin (loyalty tracking)
+          poinDisiplin -= 0.5;
         } else if (status.includes('alfa') || status.includes('mangkir')) {
           totalAlfa += 1;
-          poinDisiplin -= 10; // Potong 10 poin jika mangkir
+          poinDisiplin -= 10;
         }
       }
     });

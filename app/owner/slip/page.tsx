@@ -103,7 +103,7 @@ export default function HRDSlipCenter() {
     if (!element) return;
 
     // Sembunyikan tombol saat difoto (Ganti ID jadi 'btn-download-hrd' khusus di file Owner!)
-    const btn = document.getElementById('btn-download'); 
+    const btn = document.getElementById('btn-download-hrd'); 
     if (btn) btn.style.display = 'none';
 
     // Kunci ukuran tampilan agar tidak ambruk saat direkam
