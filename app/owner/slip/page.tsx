@@ -46,9 +46,9 @@ export default function HRDSlipCenter() {
     setLoadingSlip(true);
     try {
       const [resSlip, resKasbon, resCicilan] = await Promise.all([
-        fetch(`/api/kru/slip?nama=${kruObj.nama}&cabang=${kruObj.cabang}`, { cache: 'no-store' }),
-        fetch(`/api/kru/kasbon?nama=${kruObj.nama}&t=${Date.now()}`, { cache: 'no-store' }),
-        fetch(`/api/kru/cicilan?nama=${kruObj.nama}&t=${Date.now()}`, { cache: 'no-store' })
+        fetch(`/api/kru/slip?nama=${encodeURIComponent(kruObj.nama)}&cabang=${encodeURIComponent(kruObj.cabang)}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/kasbon?nama=${encodeURIComponent(kruObj.nama)}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/cicilan?nama=${encodeURIComponent(kruObj.nama)}&t=${Date.now()}`, { cache: 'no-store' })
       ]);
 
       const dataSlip = await resSlip.json();

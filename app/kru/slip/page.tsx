@@ -28,9 +28,9 @@ export default function SlipGajiKru() {
       try {
         // TWEAK: Triple Fetch! Tarik data Gaji, Kasbon, dan Cicilan sekaligus
         const [resSlip, resKasbon, resCicilan] = await Promise.all([
-          fetch(`/api/kru/slip?nama=${nama}&cabang=${cabang}`, { cache: 'no-store' }),
-          fetch(`/api/kru/kasbon?nama=${nama}&t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/kru/cicilan?nama=${nama}&t=${Date.now()}`, { cache: 'no-store' })
+          fetch(`/api/kru/slip?nama=${encodeURIComponent(nama)}&cabang=${encodeURIComponent(cabang)}&t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/kru/kasbon?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/kru/cicilan?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' })
         ]);
 
         const dataSlip = await resSlip.json();

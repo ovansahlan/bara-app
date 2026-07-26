@@ -27,6 +27,13 @@ export default function DashboardOwner() {
   const [bulanPilih, setBulanPilih] = useState<string>(new Date().toISOString().split('T')[0]);
   const [viewCabang, setViewCabang] = useState<'gabungan' | 'kedai' | 'gerobak'>('gabungan');
 
+  // Persist Sesi Login Owner
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('owner_auth') === 'true') {
+      setIsAuthorized(true);
+    }
+  }, []);
+
   const handleKeyPress = async (num: string) => {
     setErrorAuth('');
     if (pinInput.length < 4) {
@@ -42,6 +49,7 @@ export default function DashboardOwner() {
           });
           const result = await res.json();
           if (res.ok && result.success) {
+            sessionStorage.setItem('owner_auth', 'true');
             setIsAuthorized(true);
           } else {
             setTimeout(() => {
@@ -181,6 +189,7 @@ export default function DashboardOwner() {
           </div>
           <button 
             onClick={() => {
+              sessionStorage.removeItem('owner_auth');
               setIsAuthorized(false);
               setPinInput('');
             }} 

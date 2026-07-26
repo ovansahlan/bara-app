@@ -55,21 +55,58 @@ export async function GET(request: Request) {
       cicilan = parseRupiah(kruData[6] || 0);
     }
 
+    // Helper untuk kecocokan tanggal/bulan yang 100% akurat untuk semua format Google Sheets
+    const isSameMonthYear = (rowBulanStr: string, targetYear: number, targetMonth: number) => {
+      if (!rowBulanStr) return false;
+      const str = rowBulanStr.trim().toLowerCase();
+      const mStr = String(targetMonth).padStart(2, '0');
+      const mSingle = String(targetMonth);
+      const yStr = String(targetYear);
+      const yShort = String(targetYear).slice(-2);
+
+      if (str.includes(`${yStr}-${mStr}`) || str.includes(`${yStr}-${mSingle}`)) return true;
+      if (str.includes(`${mStr}/${yStr}`) || str.includes(`${mSingle}/${yStr}`)) return true;
+      if (str.includes(`${mStr}-${yStr}`) || str.includes(`${mSingle}-${yStr}`)) return true;
+      if (str.includes(`${yStr}/${mStr}`) || str.includes(`${yStr}/${mSingle}`)) return true;
+      if (str.includes(`${mStr}/${yShort}`) || str.includes(`${mSingle}/${yShort}`)) return true;
+
+      const monthNamesID = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'];
+      const monthNamesEN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const nameID = monthNamesID[targetMonth - 1];
+      const nameEN = monthNamesEN[targetMonth - 1];
+
+      if ((str.includes(nameID) || str.includes(nameEN)) && str.includes(yStr)) return true;
+
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        if (d.getFullYear() === targetYear && (d.getMonth() + 1) === targetMonth) return true;
+      }
+      return false;
+    };
+
+    const cleanNama = (str: string) => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
     // 2. Ambil Tunjangan Objektif, Overtime & Catatan Kinerja dari Owner
     const rowsEvaluasi = resEvaluasi.data.values || [];
     let tunjanganObjektif = 0;
     let uangOvertime = 0; 
     let catatanOwner = "Terima kasih atas kerja kerasmu bulan ini. Pertahankan terus kinerjamu!";
 
-    // Ambil baris evaluasi TERBARU (reverse) & dukung berbagai variasi format tanggal Google Sheets
+    // Ambil baris evaluasi TERBARU (reverse) & kecocokan nama + tanggal yang fleksibel
+    const currentYear = localDate.getFullYear();
+    const currentMonthNum = localDate.getMonth() + 1;
+    const reqNamaClean = cleanNama(namaKru);
+
     const evaluasiDitemukan = [...rowsEvaluasi.slice(1)].reverse().find(row => {
       const rowBulan = row[0] ? row[0].toString().trim() : '';
-      const rowNama = row[1] ? row[1].toString().toLowerCase().trim() : '';
-      const isNamaCocok = rowNama === namaKru;
-      const isBulanCocok = rowBulan.includes(prefixTanggalWeb) || 
-                           rowBulan.includes(prefixTanggalID) || 
-                           rowBulan.includes(formatLokal2) ||
-                           rowBulan.startsWith(prefixTanggalWeb);
+      const rowNama = row[1] ? row[1].toString() : '';
+      const rNamaClean = cleanNama(rowNama);
+
+      const isNamaCocok = rNamaClean === reqNamaClean || 
+                           rNamaClean.includes(reqNamaClean) || 
+                           reqNamaClean.includes(rNamaClean);
+      const isBulanCocok = isSameMonthYear(rowBulan, currentYear, currentMonthNum);
+
       return isNamaCocok && isBulanCocok;
     });
 
