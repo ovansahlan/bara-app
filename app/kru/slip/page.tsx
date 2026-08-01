@@ -12,7 +12,70 @@ export default function SlipGajiKru() {
   const [profilKru, setProfilKru] = useState<any>(null);
   const [slipData, setSlipData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [bulanTahun, setBulanTahun] = useState<string>(() => {
+    const today = new Date();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    return `${today.getFullYear()}-${m}`;
+  });
   const slipRef = useRef<HTMLDivElement>(null);
+
+  const fetchSlipData = async (nama: string, cabang: string, selectedPeriod: string) => {
+    setLoading(true);
+    const [tahunStr, bulanStr] = selectedPeriod.split('-');
+    try {
+      // TWEAK: Triple Fetch! Tarik data Gaji, Kasbon, dan Cicilan sekaligus
+      const [resSlip, resKasbon, resCicilan] = await Promise.all([
+        fetch(`/api/kru/slip?nama=${encodeURIComponent(nama)}&cabang=${encodeURIComponent(cabang)}&bulan=${bulanStr}&tahun=${tahunStr}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/kasbon?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/cicilan?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' })
+      ]);
+
+      const dataSlip = await resSlip.json();
+      const dataKasbon = await resKasbon.json();
+      const dataCicilan = await resCicilan.json();
+
+      if (dataSlip.success) {
+        let finalSlip = { ...dataSlip.data };
+        let listPotonganKustom: any[] = [];
+        let totalSemuaPotongan = 0;
+
+        // A. Masukkan Data Kasbon Berjalan
+        if (dataKasbon.success && dataKasbon.data.totalKasbon > 0) {
+          listPotonganKustom.push({
+            label: 'Kasbon Berjalan (Bulan Ini)',
+            nominal: dataKasbon.data.totalKasbon
+          });
+          totalSemuaPotongan += dataKasbon.data.totalKasbon;
+        }
+
+        // B. Masukkan Data Cicilan Tetap Aktif
+        if (dataCicilan.success && dataCicilan.data.list.length > 0) {
+          dataCicilan.data.list.forEach((item: any) => {
+            listPotonganKustom.push({
+              label: `${item.deskripsi} (${item.tenor})`,
+              nominal: item.nominal
+            });
+            totalSemuaPotongan += item.nominal;
+          });
+        }
+
+        // Simpan rincian potongan ke dalam objek Slip
+        finalSlip.arrayPotongan = listPotonganKustom;
+        finalSlip.totalPotonganPasti = totalSemuaPotongan;
+        
+        // Re-kalkulasi Gaji Bersih (Take Home Pay)
+        finalSlip.takeHomePay = finalSlip.totalPendapatan - totalSemuaPotongan;
+
+        setSlipData(finalSlip);
+      } else {
+        setSlipData(null);
+      }
+    } catch (e) {
+      console.error("Gagal menarik data slip terpadu", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const sesi = localStorage.getItem('kru_session');
@@ -24,62 +87,15 @@ export default function SlipGajiKru() {
     const dataSesi = JSON.parse(sesi);
     setProfilKru(dataSesi);
 
-    const fetchSlipData = async (nama: string, cabang: string) => {
-      try {
-        // TWEAK: Triple Fetch! Tarik data Gaji, Kasbon, dan Cicilan sekaligus
-        const [resSlip, resKasbon, resCicilan] = await Promise.all([
-          fetch(`/api/kru/slip?nama=${encodeURIComponent(nama)}&cabang=${encodeURIComponent(cabang)}&t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/kru/kasbon?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/kru/cicilan?nama=${encodeURIComponent(nama)}&t=${Date.now()}`, { cache: 'no-store' })
-        ]);
-
-        const dataSlip = await resSlip.json();
-        const dataKasbon = await resKasbon.json();
-        const dataCicilan = await resCicilan.json();
-
-        if (dataSlip.success) {
-          let finalSlip = { ...dataSlip.data };
-          let listPotonganKustom: any[] = [];
-          let totalSemuaPotongan = 0;
-
-          // A. Masukkan Data Kasbon Berjalan
-          if (dataKasbon.success && dataKasbon.data.totalKasbon > 0) {
-            listPotonganKustom.push({
-              label: 'Kasbon Berjalan (Bulan Ini)',
-              nominal: dataKasbon.data.totalKasbon
-            });
-            totalSemuaPotongan += dataKasbon.data.totalKasbon;
-          }
-
-          // B. Masukkan Data Cicilan Tetap Aktif
-          if (dataCicilan.success && dataCicilan.data.list.length > 0) {
-            dataCicilan.data.list.forEach((item: any) => {
-              listPotonganKustom.push({
-                label: `${item.deskripsi} (${item.tenor})`,
-                nominal: item.nominal
-              });
-              totalSemuaPotongan += item.nominal;
-            });
-          }
-
-          // Simpan rincian potongan ke dalam objek Slip
-          finalSlip.arrayPotongan = listPotonganKustom;
-          finalSlip.totalPotonganPasti = totalSemuaPotongan;
-          
-          // Re-kalkulasi Gaji Bersih (Take Home Pay)
-          finalSlip.takeHomePay = finalSlip.totalPendapatan - totalSemuaPotongan;
-
-          setSlipData(finalSlip);
-        }
-      } catch (e) {
-        console.error("Gagal menarik data slip terpadu", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSlipData(dataSesi.nama, dataSesi.cabang);
+    fetchSlipData(dataSesi.nama, dataSesi.cabang, bulanTahun);
   }, [router]);
+
+  const handleBulanChange = (val: string) => {
+    setBulanTahun(val);
+    if (profilKru) {
+      fetchSlipData(profilKru.nama, profilKru.cabang, val);
+    }
+  };
 
   const formatIDR = (val: number) => `Rp ${new Intl.NumberFormat('id-ID').format(val || 0)}`;
 
@@ -135,13 +151,19 @@ export default function SlipGajiKru() {
     }
   };
 
-  if (!profilKru) return null;
+  if (!profilKru) {
+    return (
+      <div className="min-h-screen bg-zinc-900 text-white font-sans p-4 flex flex-col items-center justify-center">
+        <div className="text-xs font-bold text-zinc-400 animate-pulse">Memuat profil kru...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-900 font-sans p-4 flex flex-col items-center pt-8">
       
       {/* HEADER NAVIGASI */}
-      <div className="w-full max-w-md flex items-center justify-between mb-6">
+      <div className="w-full max-w-md flex items-center justify-between mb-4">
         <Link href="/kru/dashboard" className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
           <ChevronLeft size={20} />
         </Link>
@@ -149,6 +171,17 @@ export default function SlipGajiKru() {
           <FileDown size={16} className="text-indigo-400" /> Slip Gaji Digital
         </h1>
         <div className="w-10 h-10"></div>
+      </div>
+
+      {/* Selector Bulan untuk Kru */}
+      <div className="w-full max-w-md bg-zinc-800 p-4 rounded-xl border border-zinc-700/60 shadow-xl mb-4">
+        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Pilih Periode Bulan Slip</label>
+        <input 
+          type="month" 
+          value={bulanTahun}
+          onChange={(e) => handleBulanChange(e.target.value)}
+          className="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all cursor-pointer"
+        />
       </div>
 
       {/* KERTAS SLIP GAJI (Target Render PDF) */}

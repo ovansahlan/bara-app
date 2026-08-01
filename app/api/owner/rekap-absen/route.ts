@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const today = new Date();
     const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const hariBerjalan = localDate.getDate();
     
     const monthNum = localDate.getMonth() + 1;
     const month = String(monthNum).padStart(2, '0');

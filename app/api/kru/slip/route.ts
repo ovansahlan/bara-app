@@ -11,13 +11,17 @@ export async function GET(request: Request) {
 
     if (!namaKru || !cabang) return NextResponse.json({ error: 'Parameter tidak lengkap.' }, { status: 400 });
 
+    const reqBulan = searchParams.get('bulan');
+    const reqTahun = searchParams.get('tahun');
+
     const today = new Date();
     const localDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-    const month = String(localDate.getMonth() + 1).padStart(2, '0');
-    const year = localDate.getFullYear();
-    const prefixTanggalID = `/${month}/${year}`; 
-    const prefixTanggalWeb = `${year}-${month}`; // Format YYYY-MM
-    const formatLokal2 = `-${month}-${year}`;
+    
+    const currentYear = reqTahun ? parseInt(reqTahun, 10) : localDate.getFullYear();
+    const currentMonthNum = reqBulan ? parseInt(reqBulan, 10) : (localDate.getMonth() + 1);
+
+    const monthStr = String(currentMonthNum).padStart(2, '0');
+    const yearStr = String(currentYear);
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -93,8 +97,6 @@ export async function GET(request: Request) {
     let catatanOwner = "Terima kasih atas kerja kerasmu bulan ini. Pertahankan terus kinerjamu!";
 
     // Ambil baris evaluasi TERBARU (reverse) & kecocokan nama + tanggal yang fleksibel
-    const currentYear = localDate.getFullYear();
-    const currentMonthNum = localDate.getMonth() + 1;
     const reqNamaClean = cleanNama(namaKru);
 
     const evaluasiDitemukan = [...rowsEvaluasi.slice(1)].reverse().find(row => {
@@ -140,12 +142,15 @@ export async function GET(request: Request) {
     const totalPendapatan = gajiPokok + bonusOmset + tunjanganObjektif + uangOvertime;
     const takeHomePay = totalPendapatan - cicilan;
 
+    const targetDate = new Date(currentYear, currentMonthNum - 1, 1);
+    const periodeStr = targetDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
     return NextResponse.json({
       success: true,
       data: {
         nama: namaKru,
         cabang: cabang,
-        periode: `${today.toLocaleString('id-ID', { month: 'long', year: 'numeric' })}`,
+        periode: periodeStr,
         gajiPokok,
         bonusOmset,
         tunjanganObjektif,

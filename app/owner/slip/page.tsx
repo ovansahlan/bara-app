@@ -10,6 +10,11 @@ export default function HRDSlipCenter() {
   const [daftarKru, setDaftarKru] = useState<any[]>([]);
   const [loadingKru, setLoadingKru] = useState<boolean>(true);
   const [kruTerpilih, setKruTerpilih] = useState<string>('');
+  const [bulanTahun, setBulanTahun] = useState<string>(() => {
+    const today = new Date();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    return `${today.getFullYear()}-${m}`;
+  });
   
   const [slipData, setSlipData] = useState<any>(null);
   const [loadingSlip, setLoadingSlip] = useState<boolean>(false);
@@ -32,10 +37,8 @@ export default function HRDSlipCenter() {
   }, []);
 
   // 2. Ambil data Gaji, Kasbon, dan Cicilan Tetap secara bersamaan (Triple Fetch)
-  const handlePilihKru = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nama = e.target.value;
-    setKruTerpilih(nama);
-    if (!nama) {
+  const muatDataSlip = async (nama: string, selectedPeriod: string) => {
+    if (!nama || !selectedPeriod) {
       setSlipData(null);
       return;
     }
@@ -43,10 +46,12 @@ export default function HRDSlipCenter() {
     const kruObj = daftarKru.find(k => k.nama === nama);
     if (!kruObj) return;
 
+    const [tahunStr, bulanStr] = selectedPeriod.split('-');
+
     setLoadingSlip(true);
     try {
       const [resSlip, resKasbon, resCicilan] = await Promise.all([
-        fetch(`/api/kru/slip?nama=${encodeURIComponent(kruObj.nama)}&cabang=${encodeURIComponent(kruObj.cabang)}&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/kru/slip?nama=${encodeURIComponent(kruObj.nama)}&cabang=${encodeURIComponent(kruObj.cabang)}&bulan=${bulanStr}&tahun=${tahunStr}&t=${Date.now()}`, { cache: 'no-store' }),
         fetch(`/api/kru/kasbon?nama=${encodeURIComponent(kruObj.nama)}&t=${Date.now()}`, { cache: 'no-store' }),
         fetch(`/api/kru/cicilan?nama=${encodeURIComponent(kruObj.nama)}&t=${Date.now()}`, { cache: 'no-store' })
       ]);
@@ -93,6 +98,19 @@ export default function HRDSlipCenter() {
       console.error("Gagal melakukan sinkronisasi data slip terpadu", err);
     } finally {
       setLoadingSlip(false);
+    }
+  };
+
+  const handlePilihKru = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nama = e.target.value;
+    setKruTerpilih(nama);
+    muatDataSlip(nama, bulanTahun);
+  };
+
+  const handleBulanChange = (val: string) => {
+    setBulanTahun(val);
+    if (kruTerpilih) {
+      muatDataSlip(kruTerpilih, val);
     }
   };
 
@@ -163,19 +181,32 @@ export default function HRDSlipCenter() {
         <div className="w-10 h-10"></div>
       </div>
 
-      {/* Dropdown Pemilih Karyawan */}
-      <div className="w-full max-w-md bg-slate-800 p-4 rounded-2xl border border-slate-700/60 shadow-xl mb-5">
-        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pilih Slip Gaji Karyawan</label>
-        <select 
-          value={kruTerpilih} 
-          onChange={handlePilihKru}
-          className="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500 transition-all cursor-pointer"
-        >
-          <option value="">{loadingKru ? 'Memuat data tim...' : '-- Pilih Anggota Tim --'}</option>
-          {daftarKru.map(k => (
-            <option key={k.id} value={k.nama}>{k.nama.toUpperCase()} ({k.cabang})</option>
-          ))}
-        </select>
+      {/* Selector Bulan & Karyawan */}
+      <div className="w-full max-w-md bg-slate-800 p-4 rounded-2xl border border-slate-700/60 shadow-xl mb-5 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pilih Bulan Slip</label>
+            <input 
+              type="month" 
+              value={bulanTahun}
+              onChange={(e) => handleBulanChange(e.target.value)}
+              className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pilih Karyawan</label>
+            <select 
+              value={kruTerpilih} 
+              onChange={handlePilihKru}
+              className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+            >
+              <option value="">{loadingKru ? 'Memuat...' : '-- Pilih Tim --'}</option>
+              {daftarKru.map(k => (
+                <option key={k.id} value={k.nama}>{k.nama.toUpperCase()} ({k.cabang})</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Lembar Slip Gaji */}
